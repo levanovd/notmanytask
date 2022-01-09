@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -130,9 +131,15 @@ func (s *server) RenderCheaterPage(c *gin.Context) {
 	})
 }
 
+func (s *server) RedirectToStandingsPage(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	url := strings.Replace(s.config.Endpoints.GroupStandings, ":group", user.GroupName, 1)
+	c.Redirect(http.StatusMovedPermanently, url)
+}
+
 func (s *server) RenderStandingsPage(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	scores, err := s.scorer.CalcScoreboard("students")
+	scores, err := s.scorer.CalcScoreboard(c.Param("group"))
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
 		"CourseName": "HSE Advanced C++",
 		"Title":      "HSE Advanced C++",
