@@ -47,12 +47,16 @@ testing:
   - {GRADER_OR_CRASHME_TOKEN_2}
 
 groups:
-- name: hse
-  secret: ihatecpp
+- name: students
   deadlinesUrl: https://gitlab.com/{USER}/{REPO}/-/raw/main/deadlines/hse.yml
-- name: test
-  secret: ilovecpp
-  deadlinesUrl: https://gitlab.com/{USER}/{REPO}/-/raw/main/deadlines/test.yml
+  subgroups:
+  - name: 01
+    secret: ihatecpp-01
+- name: staff
+  deadlinesUrl: https://gitlab.com/{USER}/{REPO}/-/raw/main/deadlines/hse.yml
+  subgroups:
+  - name: staff
+    secret: ilovecpp
 
 pullIntervals:
   projects: 10s

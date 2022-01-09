@@ -62,10 +62,15 @@ type TestingConfig struct {
 	Tokens []string
 }
 
+type SubgroupConfig struct {
+	Name   string
+	Secret string
+}
+
 type GroupConfig struct {
 	Name         string
-	Secret       string
 	DeadlinesURL string
+	Subgroups    []SubgroupConfig
 }
 
 type GroupsConfig = []GroupConfig
