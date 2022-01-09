@@ -29,10 +29,10 @@ coverage_html:
 	rm coverage.out
 
 docker_image:
-	docker build . -f Dockerfile -t bigredeye/notmanytask:latest
+	docker build . -f Dockerfile -t cr.yandex/crpkun66rq02t8mpkpa4/notmanytask:latest
 
 docker_hub: docker_image
-	docker push bigredeye/notmanytask:latest
+	docker push cr.yandex/crpkun66rq02t8mpkpa4/notmanytask:latest
 
 docker_image_crashme:
 	docker build . -f Dockerfile.crashme -t bigredeye/notmanytask:crashme

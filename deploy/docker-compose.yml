@@ -2,7 +2,7 @@ version: "3"
 
 services:
   notmanytask:
-    image: bigredeye/notmanytask:latest
+    image: cr.yandex/crpkun66rq02t8mpkpa4/notmanytask:latest
     ports:
       - 18080:18080
     volumes:
