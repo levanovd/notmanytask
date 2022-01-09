@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -84,6 +85,13 @@ type Links struct {
 	SubmitFlag      string
 }
 
+type GroupLink struct {
+	Link string
+	Name string
+}
+
+type GroupLinks = []GroupLink
+
 func (s *server) makeLinks(user *models.User) Links {
 	return Links{
 		Deadlines:       s.config.Endpoints.Home,
@@ -94,6 +102,21 @@ func (s *server) makeLinks(user *models.User) Links {
 		Logout:          s.config.Endpoints.Logout,
 		SubmitFlag:      s.config.Endpoints.Flag,
 	}
+}
+
+func (s *server) makeGroupLinks() GroupLinks {
+	links := make([]GroupLink, len(s.config.Groups))
+
+	for i, g := range s.config.Groups {
+		links[i].Name = g.Name
+		links[i].Link = s.makeGroupLink(g.Name)
+	}
+
+	return links
+}
+
+func (s *server) makeGroupLink(g string) string {
+	return strings.Replace(s.config.Endpoints.GroupStandings, ":group", g, 1)
 }
 
 func (s *server) RenderHomePage(c *gin.Context) {
@@ -130,9 +153,14 @@ func (s *server) RenderCheaterPage(c *gin.Context) {
 	})
 }
 
+func (s *server) RedirectToStandingsPage(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	c.Redirect(http.StatusMovedPermanently, s.makeGroupLink(user.GroupName))
+}
+
 func (s *server) RenderStandingsPage(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	scores, err := s.scorer.CalcScoreboard("hse")
+	scores, err := s.scorer.CalcScoreboard(c.Param("group"))
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
 		"CourseName": "HSE Advanced C++",
 		"Title":      "HSE Advanced C++",
@@ -140,12 +168,13 @@ func (s *server) RenderStandingsPage(c *gin.Context) {
 		"Standings":  scores,
 		"Error":      err,
 		"Links":      s.makeLinks(user),
+		"Groups":     s.makeGroupLinks(),
 	})
 }
 
 func (s *server) RenderStandingsCheaterPage(c *gin.Context) {
 	user, err := s.db.FindUserByGitlabLogin(c.Query("login"))
-	scores, err := s.scorer.CalcScoreboard("hse")
+	scores, err := s.scorer.CalcScoreboard("students")
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
 		"CourseName": "HSE Advanced C++",
 		"Title":      "HSE Advanced C++",
@@ -153,5 +182,6 @@ func (s *server) RenderStandingsCheaterPage(c *gin.Context) {
 		"Standings":  scores,
 		"Error":      err,
 		"Links":      s.makeLinks(user),
+		"Groups":     s.makeGroupLinks(),
 	})
 }

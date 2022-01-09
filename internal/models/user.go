@@ -15,9 +15,10 @@ type User struct {
 
 	GitlabUser
 
-	FirstName string `gorm:"uniqueIndex:idx_name"`
-	LastName  string `gorm:"uniqueIndex:idx_name"`
-	GroupName string `gorm:"uniqueIndex:idx_name"`
+	FirstName    string `gorm:"uniqueIndex:idx_name"`
+	LastName     string `gorm:"uniqueIndex:idx_name"`
+	GroupName    string `gorm:"uniqueIndex:idx_name"`
+	SubgroupName string `gorm:"uniqueIndex:idx_name"`
 }
 
 type Session struct {

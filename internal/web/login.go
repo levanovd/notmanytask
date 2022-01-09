@@ -81,9 +81,13 @@ func (s loginService) signupForm(c *gin.Context) {
 
 	// Find group by secret
 	groupName := ""
+	subgroupName := ""
 	for _, group := range s.config.Groups {
-		if secret == group.Secret {
-			groupName = group.Name
+		for _, subgroup := range group.Subgroups {
+			if subgroup.Secret == secret {
+				groupName = group.Name
+				subgroupName = subgroup.Name
+			}
 		}
 	}
 	if groupName == "" {
@@ -91,12 +95,16 @@ func (s loginService) signupForm(c *gin.Context) {
 		s.RedirectToSignup(c, "Invalid secret")
 		return
 	}
-	log = log.With(zap.String("group_name", groupName))
+	log = log.With(
+		zap.String("group_name", groupName),
+		zap.String("subgroup_name", groupName),
+	)
 
 	user, err := s.server.db.AddUser(&models.User{
-		FirstName: normalizeName(firstName),
-		LastName:  normalizeName(lastName),
-		GroupName: groupName,
+		FirstName:    normalizeName(firstName),
+		LastName:     normalizeName(lastName),
+		GroupName:    groupName,
+		SubgroupName: subgroupName,
 	})
 	if err != nil {
 		if database.IsDuplicateKey(err) {

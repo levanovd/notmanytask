@@ -27,14 +27,15 @@ type GitLabConfig struct {
 }
 
 type EndpointsConfig struct {
-	HostName      string
-	Home          string
-	Flag          string
-	Login         string
-	Logout        string
-	Signup        string
-	Standings     string
-	OauthCallback string
+	HostName       string
+	Home           string
+	Flag           string
+	Login          string
+	Logout         string
+	Signup         string
+	Standings      string
+	GroupStandings string
+	OauthCallback  string
 
 	Api struct {
 		Report string
@@ -62,10 +63,15 @@ type TestingConfig struct {
 	Tokens []string
 }
 
+type SubgroupConfig struct {
+	Name   string
+	Secret string
+}
+
 type GroupConfig struct {
 	Name         string
-	Secret       string
 	DeadlinesURL string
+	Subgroups    []SubgroupConfig
 }
 
 type GroupsConfig = []GroupConfig
