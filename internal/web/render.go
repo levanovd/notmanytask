@@ -132,7 +132,7 @@ func (s *server) RenderCheaterPage(c *gin.Context) {
 
 func (s *server) RenderStandingsPage(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	scores, err := s.scorer.CalcScoreboard("hse")
+	scores, err := s.scorer.CalcScoreboard("students")
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
 		"CourseName": "HSE Advanced C++",
 		"Title":      "HSE Advanced C++",
@@ -145,7 +145,7 @@ func (s *server) RenderStandingsPage(c *gin.Context) {
 
 func (s *server) RenderStandingsCheaterPage(c *gin.Context) {
 	user, err := s.db.FindUserByGitlabLogin(c.Query("login"))
-	scores, err := s.scorer.CalcScoreboard("hse")
+	scores, err := s.scorer.CalcScoreboard("students")
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
 		"CourseName": "HSE Advanced C++",
 		"Title":      "HSE Advanced C++",
