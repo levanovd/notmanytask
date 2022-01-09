@@ -85,6 +85,13 @@ type Links struct {
 	SubmitFlag      string
 }
 
+type GroupLink struct {
+	Link string
+	Name string
+}
+
+type GroupLinks = []GroupLink
+
 func (s *server) makeLinks(user *models.User) Links {
 	return Links{
 		Deadlines:       s.config.Endpoints.Home,
@@ -95,6 +102,21 @@ func (s *server) makeLinks(user *models.User) Links {
 		Logout:          s.config.Endpoints.Logout,
 		SubmitFlag:      s.config.Endpoints.Flag,
 	}
+}
+
+func (s *server) makeGroupLinks() GroupLinks {
+	links := make([]GroupLink, len(s.config.Groups))
+
+	for i, g := range s.config.Groups {
+		links[i].Name = g.Name
+		links[i].Link = s.makeGroupLink(g.Name)
+	}
+
+	return links
+}
+
+func (s *server) makeGroupLink(g string) string {
+	return strings.Replace(s.config.Endpoints.GroupStandings, ":group", g, 1)
 }
 
 func (s *server) RenderHomePage(c *gin.Context) {
@@ -133,8 +155,7 @@ func (s *server) RenderCheaterPage(c *gin.Context) {
 
 func (s *server) RedirectToStandingsPage(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	url := strings.Replace(s.config.Endpoints.GroupStandings, ":group", user.GroupName, 1)
-	c.Redirect(http.StatusMovedPermanently, url)
+	c.Redirect(http.StatusMovedPermanently, s.makeGroupLink(user.GroupName))
 }
 
 func (s *server) RenderStandingsPage(c *gin.Context) {
@@ -147,6 +168,7 @@ func (s *server) RenderStandingsPage(c *gin.Context) {
 		"Standings":  scores,
 		"Error":      err,
 		"Links":      s.makeLinks(user),
+		"Groups":     s.makeGroupLinks(),
 	})
 }
 
@@ -160,5 +182,6 @@ func (s *server) RenderStandingsCheaterPage(c *gin.Context) {
 		"Standings":  scores,
 		"Error":      err,
 		"Links":      s.makeLinks(user),
+		"Groups":     s.makeGroupLinks(),
 	})
 }
