@@ -58,7 +58,7 @@ func OpenDataBase(logger *zap.Logger, dsn string) (*DataBase, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Pipeline{}, &models.Session{}, &models.Flag{})
+	err = db.AutoMigrate(&models.User{}, &models.Pipeline{}, &models.Session{}, &models.Flag{}, &models.MergeRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +180,15 @@ func (db *DataBase) ListAllPipelines() (pipelines []models.Pipeline, err error) 
 	return
 }
 
+func (db *DataBase) FindLatestPipeline(project string, task string) (*models.Pipeline, error) {
+	pipelines := make([]models.Pipeline, 0)
+	err := db.Find(&pipelines, "project = ? && task = ?", project, task).Order("started_at desc").Error
+	if err != nil {
+		pipelines = nil
+	}
+	return &pipelines[0], err
+}
+
 func (db *DataBase) CreateSession(user uint) (*models.Session, error) {
 	session := &models.Session{
 		Token:  uuid.Must(uuid.NewUUID()).String(),
@@ -259,4 +268,23 @@ func (db *DataBase) ListSubmittedFlags() (flags []models.Flag, err error) {
 		flags = nil
 	}
 	return
+}
+
+func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
+	return db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"status"}),
+	}).Create(mergeRequest).Error
+}
+
+func (db *DataBase) FindMergeRequest(project string, task string) (*models.MergeRequest, error) {
+	var mergeRequest models.MergeRequest
+	res := db.DB.Where("project = ? AND task = ?", project, task).Take(&mergeRequest)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected < 1 {
+		return nil, errors.New("Unknown merge request")
+	}
+	return &mergeRequest, nil
 }

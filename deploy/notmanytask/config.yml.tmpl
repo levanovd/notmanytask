@@ -14,6 +14,7 @@ gitlab:
   application:
     secret: {GITLAB_APPLICATION_SECRET}
     clientId: {GITLAB_APPLICATION_CLIENT_ID}
+  reviewTtl: 3d
 
 endpoints:
   hostname: https://{SITE_DOMAIN}
@@ -63,3 +64,4 @@ pullIntervals:
   projects: 10s
   pipelines: 30s
   deadlines: 10s
+  mergeRequests: 30s

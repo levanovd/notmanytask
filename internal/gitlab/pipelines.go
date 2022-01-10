@@ -2,7 +2,6 @@ package gitlab
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -80,7 +79,7 @@ func (p PipelinesFetcher) fetchAllPipelines() {
 	p.logger.Info("Start pipelines fetcher iteration")
 	defer p.logger.Info("Finish pipelines fetcher iteration")
 
-	err := p.forEachProject(func(project *gitlab.Project) error {
+	err := p.ForEachProject(func(project *gitlab.Project) error {
 		p.logger.Info("Found project", lf.ProjectName(project.Name))
 		options := &gitlab.ListProjectPipelinesOptions{}
 		for {
@@ -111,42 +110,4 @@ func (p PipelinesFetcher) fetchAllPipelines() {
 	} else {
 		p.logger.Error("Failed to fetch pipelines", zap.Error(err))
 	}
-}
-
-func (p PipelinesFetcher) forEachProject(callback func(project *gitlab.Project) error) error {
-	options := gitlab.ListGroupProjectsOptions{}
-
-	for {
-		projects, resp, err := p.gitlab.Groups.ListGroupProjects(p.config.GitLab.Group.ID, &options)
-		if err != nil {
-			p.logger.Error("Failed to list projects", zap.Error(err))
-			return err
-		}
-
-		for _, project := range projects {
-			if err = callback(project); err != nil {
-				p.logger.Error("Project callback failed", zap.Error(err))
-				return err
-			}
-		}
-
-		if resp.CurrentPage >= resp.TotalPages {
-			break
-		}
-		options.Page = resp.NextPage
-	}
-
-	return nil
-}
-
-const (
-	branchPrefix = "submits/"
-)
-
-func ParseTaskFromBranch(task string) string {
-	return strings.TrimPrefix(task, branchPrefix)
-}
-
-func MakeBranchForTask(task string) string {
-	return branchPrefix + task
 }
