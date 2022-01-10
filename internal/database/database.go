@@ -182,7 +182,7 @@ func (db *DataBase) ListAllPipelines() (pipelines []models.Pipeline, err error) 
 
 func (db *DataBase) FindLatestPipeline(project string, task string) (*models.Pipeline, error) {
 	pipelines := make([]models.Pipeline, 0)
-	err := db.Find(&pipelines, "project = ? && task = ?", project, task).Order("started_at desc").Error
+	err := db.Find(&pipelines, "project = ? AND task = ?", project, task).Order("started_at desc").Error
 	if err != nil {
 		pipelines = nil
 	}
@@ -280,11 +280,11 @@ func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 func (db *DataBase) FindMergeRequest(project string, task string) (*models.MergeRequest, error) {
 	var mergeRequest models.MergeRequest
 	res := db.DB.Where("project = ? AND task = ?", project, task).Take(&mergeRequest)
+	if res.Error == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
 	if res.Error != nil {
 		return nil, res.Error
-	}
-	if res.RowsAffected < 1 {
-		return nil, errors.New("Unknown merge request")
 	}
 	return &mergeRequest, nil
 }
