@@ -48,6 +48,7 @@ func (p MergeRequestsUpdater) addMergeRequest(projectName string, mergeRequest *
 		Status:    getMergeRequestState(mergeRequest),
 		Project:   projectName,
 		StartedAt: *mergeRequest.CreatedAt,
+		IID:       mergeRequest.IID,
 	})
 }
 
@@ -139,7 +140,7 @@ func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*g
 
 func (p MergeRequestsUpdater) updateMergeRequest(project int, mergeRequest *models.MergeRequest, reviewDeadline time.Time) error {
 	options := &gitlab.GetMergeRequestsOptions{}
-	gitlabMergeRequest, _, err := p.gitlab.MergeRequests.GetMergeRequest(project, mergeRequest.ID, options)
+	gitlabMergeRequest, _, err := p.gitlab.MergeRequests.GetMergeRequest(project, mergeRequest.IID, options)
 	if err != nil {
 		p.logger.Error("Failed to get merge request", zap.Error(err))
 		return err
@@ -161,7 +162,7 @@ func (p MergeRequestsUpdater) updateMergeRequest(project int, mergeRequest *mode
 		options := &gitlab.AcceptMergeRequestOptions{
 			MergeCommitMessage: &mergeCommitMessage,
 		}
-		_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project, mergeRequest.ID, options)
+		_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project, mergeRequest.IID, options)
 		if err != nil {
 			p.logger.Error("Failed to accept merge request", zap.Error(err))
 			return err

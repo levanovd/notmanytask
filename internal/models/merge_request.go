@@ -19,4 +19,5 @@ type MergeRequest struct {
 	Task      string `gorm:"index"`
 	Status    MergeRequestStatus
 	StartedAt time.Time
+	IID       int
 }
