@@ -260,3 +260,10 @@ func (db *DataBase) ListSubmittedFlags() (flags []models.Flag, err error) {
 	}
 	return
 }
+
+func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
+	return db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"status"}),
+	}).Create(mergeRequest).Error
+}

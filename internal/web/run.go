@@ -74,9 +74,16 @@ func Run() error {
 		return errors.Wrap(err, "Failed to create projects maker")
 	}
 
+	mergeRequestsCtx, mergeRequestsCancel := context.WithCancel(ctx)
+	defer mergeRequestsCancel()
+	mergeRequests, err := gitlab.NewMergeRequestsFetcher(git, db)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create merge requests fetcher")
+	}
+
 	scorer := scorer.NewScorer(db, deadlines, git)
 
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		defer wg.Done()
 		deadlines.Run(deadlinesCtx)
@@ -88,6 +95,10 @@ func Run() error {
 	go func() {
 		defer wg.Done()
 		pipelines.Run(pipelinesCtx)
+	}()
+	go func() {
+		defer wg.Done()
+		mergeRequests.Run(mergeRequestsCtx)
 	}()
 
 	s, err := newServer(config, logger.Named("server"), db, deadlines, projects, pipelines, scorer, git)

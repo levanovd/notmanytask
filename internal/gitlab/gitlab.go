@@ -194,3 +194,29 @@ func (c Client) MakePipelineUrl(user *models.User, pipeline *models.Pipeline) st
 func (c Client) MakeTaskUrl(task string) string {
 	return fmt.Sprintf("%s/%s", c.config.GitLab.TaskUrlPrefix, task)
 }
+
+func (c Client) ForEachProject(callback func(project *gitlab.Project) error) error {
+	options := gitlab.ListGroupProjectsOptions{}
+
+	for {
+		projects, resp, err := c.gitlab.Groups.ListGroupProjects(c.config.GitLab.Group.ID, &options)
+		if err != nil {
+			c.logger.Error("Failed to list projects", zap.Error(err))
+			return err
+		}
+
+		for _, project := range projects {
+			if err = callback(project); err != nil {
+				c.logger.Error("Project callback failed", zap.Error(err))
+				return err
+			}
+		}
+
+		if resp.CurrentPage >= resp.TotalPages {
+			break
+		}
+		options.Page = resp.NextPage
+	}
+
+	return nil
+}
