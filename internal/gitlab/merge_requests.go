@@ -167,9 +167,11 @@ func (p MergeRequestsUpdater) updateMergeRequest(project int, mergeRequest *mode
 			return err
 		}
 		p.logger.Info("Accepted merge request", lf.ProjectName(mergeRequest.Project), lf.BranchName(mergeRequest.Task))
+		mergeRequest.Status = models.MergeRequestMerged
+	} else {
+		mergeRequest.Status = getMergeRequestState(gitlabMergeRequest)
 	}
 
-	mergeRequest.Status = getMergeRequestState(gitlabMergeRequest)
 	err = p.db.AddMergeRequest(mergeRequest)
 	if err != nil {
 		p.logger.Error("Failed to update merge request in db", zap.Error(err))
