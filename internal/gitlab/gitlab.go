@@ -37,7 +37,7 @@ func NewClient(config *config.Config, logger *zap.Logger) (*Client, error) {
 }
 
 const (
-	master = "master"
+	master = "main"
 )
 
 func (c Client) InitializeProject(user *models.User) error {
