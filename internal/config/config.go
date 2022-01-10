@@ -24,6 +24,7 @@ type GitLabConfig struct {
 	Api struct {
 		Token string
 	}
+	ReviewTtl time.Duration
 }
 
 type EndpointsConfig struct {

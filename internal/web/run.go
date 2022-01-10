@@ -76,9 +76,9 @@ func Run() error {
 
 	mergeRequestsCtx, mergeRequestsCancel := context.WithCancel(ctx)
 	defer mergeRequestsCancel()
-	mergeRequests, err := gitlab.NewMergeRequestsFetcher(git, db)
+	mergeRequests, err := gitlab.NewMergeRequestsUpdater(git, db)
 	if err != nil {
-		return errors.Wrap(err, "Failed to create merge requests fetcher")
+		return errors.Wrap(err, "Failed to create merge requests updater")
 	}
 
 	scorer := scorer.NewScorer(db, deadlines, git)
