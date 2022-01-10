@@ -56,14 +56,6 @@ func classifyPipelineStatus(status models.PipelineStatus) taskStatus {
 	}
 }
 
-func pipelineLess(left *models.Pipeline, right *models.Pipeline) bool {
-	if classifyPipelineStatus(left.Status) == classifyPipelineStatus(right.Status) {
-		return left.StartedAt.Before(right.StartedAt)
-	}
-
-	return classifyPipelineStatus(left.Status) > classifyPipelineStatus(right.Status)
-}
-
 // TODO(BigRedEye): Unify submits?
 type pipelinesMap map[string]*models.Pipeline
 type flagsMap map[string]*models.Flag
@@ -81,7 +73,7 @@ func (s Scorer) loadUserPipelines(user *models.User, provider pipelinesProvider)
 	for i := range pipelines {
 		pipeline := &pipelines[i]
 		prev, found := pipelinesMap[pipeline.Task]
-		if !found || pipelineLess(pipeline, prev) {
+		if !found || pipeline.StartedAt.After(prev.StartedAt) {
 			prev = pipeline
 		}
 		pipelinesMap[pipeline.Task] = prev
