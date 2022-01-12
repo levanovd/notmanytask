@@ -87,20 +87,20 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 				mergeRequest, err := p.db.FindMergeRequest(project.Name, task)
 				if err != nil {
 					p.logger.Error("Failed to find merge request", zap.Error(err))
-					return err
+					continue
 				}
 				if mergeRequest != nil {
 					p.logger.Info("Found merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 					err = p.updateMergeRequest(project.ID, mergeRequest, reviewMergeRequestDeadline)
 					if err != nil {
 						p.logger.Error("Failed to update merge request", zap.Error(err))
-						return err
 					}
 					continue
 				}
 				mergeRequestCreated, err := p.createMergeRequest(project.ID, branch.Name)
 				if err != nil {
 					p.logger.Error("Failed to create merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+					continue
 				}
 				if err = p.addMergeRequest(project.Name, mergeRequestCreated); err != nil {
 					p.logger.Error("Failed to add merge request", zap.Error(err), lf.ProjectName(project.Name), lf.MergeRequestID(mergeRequest.ID))
