@@ -156,7 +156,7 @@ func (p MergeRequestsUpdater) updateMergeRequest(project int, mergeRequest *mode
 
 	if gitlabMergeRequest.MergeStatus == "can_be_merged" &&
 		gitlabMergeRequest.UserNotesCount == 0 &&
-		pipeline.StartedAt.After(reviewDeadline) &&
+		pipeline.StartedAt.Before(reviewDeadline) &&
 		pipeline.Status == models.PipelineStatusSuccess {
 		mergeCommitMessage := "Automatic merge"
 		options := &gitlab.AcceptMergeRequestOptions{
