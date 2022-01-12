@@ -66,6 +66,7 @@ func (c Client) InitializeProject(user *models.User) error {
 			DefaultBranch:        gitlab.String(master),
 			Visibility:           gitlab.Visibility(gitlab.PrivateVisibility),
 			SharedRunnersEnabled: gitlab.Bool(false),
+			ImportURL:            gitlab.String("https://gitlab.com/levanovd/cpp-base-hse-2022.git"),
 		})
 		if err != nil {
 			log.Error("Failed to create project", zap.Error(err))
