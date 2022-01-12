@@ -82,17 +82,6 @@ func (c Client) InitializeProject(user *models.User) error {
 		log.Info("Found existing project")
 	}
 
-	// Protect master branch from unintended commits
-	_, _, err = c.gitlab.Branches.ProtectBranch(project.ID, master, &gitlab.ProtectBranchOptions{
-		DevelopersCanPush:  gitlab.Bool(false),
-		DevelopersCanMerge: gitlab.Bool(false),
-	})
-	if err != nil {
-		log.Error("Failed to protect master branch", zap.Error(err))
-		return errors.Wrap(err, "Failed to protect master branch")
-	}
-	log.Info("Protected master branch")
-
 	// Check if user is alreay in project
 	foundUser := false
 	options := gitlab.ListProjectMembersOptions{}
