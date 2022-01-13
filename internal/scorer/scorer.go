@@ -19,6 +19,7 @@ type ProjectNameFactory interface {
 	MakeProjectUrl(user *models.User) string
 	MakeProjectName(user *models.User) string
 	MakePipelineUrl(user *models.User, pipeline *models.Pipeline) string
+	MakeMergeRequestUrl(user *models.User, mergeRequest *models.MergeRequest) string
 	MakeTaskUrl(task string) string
 }
 
@@ -58,9 +59,11 @@ func classifyPipelineStatus(status models.PipelineStatus) taskStatus {
 
 // TODO(BigRedEye): Unify submits?
 type pipelinesMap map[string]*models.Pipeline
+type mergeRequestsMap map[string]*models.MergeRequest
 type flagsMap map[string]*models.Flag
 
 type pipelinesProvider = func(project string) (pipelines []models.Pipeline, err error)
+type mergeRequestsProvider = func(project string) (mergeRequests []models.MergeRequest, err error)
 type flagsProvider = func(gitlabLogin string) (flags []models.Flag, err error)
 
 func (s Scorer) loadUserPipelines(user *models.User, provider pipelinesProvider) (pipelinesMap, error) {
@@ -79,6 +82,24 @@ func (s Scorer) loadUserPipelines(user *models.User, provider pipelinesProvider)
 		pipelinesMap[pipeline.Task] = prev
 	}
 	return pipelinesMap, nil
+}
+
+func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsProvider) (mergeRequestsMap, error) {
+	mergeRequests, err := provider(s.projects.MakeProjectName(user))
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to list user merge requests")
+	}
+
+	mergeRequestsMap := make(mergeRequestsMap)
+	for i := range mergeRequests {
+		mergeRequest := &mergeRequests[i]
+		prev, found := mergeRequestsMap[mergeRequest.Task]
+		if !found || mergeRequest.Status != models.MergeRequestMerged {
+			prev = mergeRequest
+		}
+		mergeRequestsMap[mergeRequest.Task] = prev
+	}
+	return mergeRequestsMap, nil
 }
 
 func (s Scorer) loadUserFlags(user *models.User, provider flagsProvider) (flagsMap, error) {
@@ -115,6 +136,11 @@ func (s Scorer) CalcScoreboard(groupName string) (*Standings, error) {
 		return nil, err
 	}
 
+	mergeRequests, err := s.makeCachedMergeRequestsProvider()
+	if err != nil {
+		return nil, err
+	}
+
 	flags, err := s.makeCachedFlagsProvider()
 	if err != nil {
 		return nil, err
@@ -122,7 +148,7 @@ func (s Scorer) CalcScoreboard(groupName string) (*Standings, error) {
 
 	scores := make([]*UserScores, len(users))
 	for i, user := range users {
-		userScores, err := s.calcUserScoresImpl(currentDeadlines, user, pipelines, flags)
+		userScores, err := s.calcUserScoresImpl(currentDeadlines, user, pipelines, mergeRequests, flags)
 		if err != nil {
 			return nil, err
 		}
@@ -161,6 +187,27 @@ func (s Scorer) makeCachedPipelinesProvider() (pipelinesProvider, error) {
 	}, nil
 }
 
+func (s Scorer) makeCachedMergeRequestsProvider() (mergeRequestsProvider, error) {
+	mergeRequests, err := s.db.ListAllMergeRequests()
+	if err != nil {
+		return nil, err
+	}
+
+	mergeRequestsMap := make(map[string][]models.MergeRequest)
+	for _, mergeRequest := range mergeRequests {
+		prev, found := mergeRequestsMap[mergeRequest.Project]
+		if !found {
+			prev = make([]models.MergeRequest, 0, 1)
+		}
+		prev = append(prev, mergeRequest)
+		mergeRequestsMap[mergeRequest.Project] = prev
+	}
+
+	return func(project string) (mergeRequests []models.MergeRequest, err error) {
+		return mergeRequestsMap[project], nil
+	}, nil
+}
+
 func (s Scorer) makeCachedFlagsProvider() (flagsProvider, error) {
 	flags, err := s.db.ListSubmittedFlags()
 	if err != nil {
@@ -188,11 +235,16 @@ func (s Scorer) CalcUserScores(user *models.User) (*UserScores, error) {
 		return nil, fmt.Errorf("No deadlines found")
 	}
 
-	return s.calcUserScoresImpl(currentDeadlines, user, s.db.ListProjectPipelines, s.db.ListUserFlags)
+	return s.calcUserScoresImpl(currentDeadlines, user, s.db.ListProjectPipelines, s.db.ListProjectMergeRequests, s.db.ListUserFlags)
 }
 
-func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *models.User, pipelinesP pipelinesProvider, flagsP flagsProvider) (*UserScores, error) {
+func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *models.User, pipelinesP pipelinesProvider, mergeRequestsP mergeRequestsProvider, flagsP flagsProvider) (*UserScores, error) {
 	pipelinesMap, err := s.loadUserPipelines(user, pipelinesP)
+	if err != nil {
+		return nil, err
+	}
+
+	mergeRequestsMap, err := s.loadUserMergeRequests(user, mergeRequestsP)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +287,16 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				tasks[i].Status = ClassifyPipelineStatus(pipeline.Status)
 				tasks[i].Score = s.scorePipeline(&task, &group, pipeline)
 				tasks[i].PipelineUrl = s.projects.MakePipelineUrl(user, pipeline)
+
+				mergeRequest, mergeRequestFound := mergeRequestsMap[task.Task]
+				if mergeRequestFound {
+					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
+
+					if tasks[i].Status == models.PipelineStatusSuccess && mergeRequest.Status != models.MergeRequestMerged {
+						tasks[i].Status = TaskStatusOnReview
+						tasks[i].Score = 0
+					}
+				}
 			} else {
 				flag, found := flagsMap[task.Task]
 				if found {

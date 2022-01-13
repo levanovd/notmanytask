@@ -288,3 +288,21 @@ func (db *DataBase) FindMergeRequest(project string, task string) (*models.Merge
 	}
 	return &mergeRequest, nil
 }
+
+func (db *DataBase) ListProjectMergeRequests(project string) (mergeRequests []models.MergeRequest, err error) {
+	mergeRequests = make([]models.MergeRequest, 0)
+	err = db.Find(&mergeRequests, "project = ?", project).Error
+	if err != nil {
+		mergeRequests = nil
+	}
+	return
+}
+
+func (db *DataBase) ListAllMergeRequests() (mergeRequests []models.MergeRequest, err error) {
+	mergeRequests = make([]models.MergeRequest, 0)
+	err = db.Find(&mergeRequests).Error
+	if err != nil {
+		mergeRequests = nil
+	}
+	return
+}

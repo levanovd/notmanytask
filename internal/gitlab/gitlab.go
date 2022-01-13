@@ -154,6 +154,11 @@ func (c Client) MakePipelineUrl(user *models.User, pipeline *models.Pipeline) st
 	return fmt.Sprintf("%s/%s/%s/-/pipelines/%d", c.config.GitLab.BaseURL, c.config.GitLab.Group.Name, name, pipeline.ID)
 }
 
+func (c Client) MakeMergeRequestUrl(user *models.User, mergeRequest *models.MergeRequest) string {
+	name := c.MakeProjectName(user)
+	return fmt.Sprintf("%s/%s/%s/-/merge_requests/%d", c.config.GitLab.BaseURL, c.config.GitLab.Group.Name, name, mergeRequest.IID)
+}
+
 func (c Client) MakeTaskUrl(task string) string {
 	return fmt.Sprintf("%s/%s", c.config.GitLab.TaskUrlPrefix, task)
 }

@@ -10,6 +10,7 @@ const (
 	TaskStatusFailed   = "failed"
 	TaskStatusChecking = "checking"
 	TaskStatusSuccess  = "success"
+	TaskStatusOnReview = "on_review"
 )
 
 type TaskStatus = string
