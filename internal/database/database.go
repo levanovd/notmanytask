@@ -114,12 +114,20 @@ func (db *DataBase) ListUsersWithoutRepos() ([]*models.User, error) {
 	return users, nil
 }
 
-func (db *DataBase) ListGroupUsers(groupName string) ([]*models.User, error) {
+func (db *DataBase) ListGroupUsers(groupName string, subgroupName string) ([]*models.User, error) {
 	var users []*models.User
-	err := db.Find(&users, "repository IS NOT NULL AND group_name = ?", groupName).Order("created_at").Error
-	if err != nil {
-		return nil, err
+	if (subgroupName != "") {
+		err := db.Find(&users, "repository IS NOT NULL AND group_name = ? AND subgroup_name = ?", groupName, subgroupName).Order("created_at").Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := db.Find(&users, "repository IS NOT NULL AND group_name = ?", groupName).Order("created_at").Error
+		if err != nil {
+			return nil, err
+		}
 	}
+	
 	return users, nil
 }
 

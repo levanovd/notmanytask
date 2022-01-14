@@ -15,7 +15,7 @@ import (
 
 func (s *server) RenderSignupPage(c *gin.Context, err string) {
 	c.HTML(http.StatusOK, "/signup.tmpl", gin.H{
-		"CourseName":   "HSE Advanced C++",
+		"CourseName":   "HSE Basic C++",
 		"Config":       s.config,
 		"ErrorMessage": err,
 	})
@@ -28,7 +28,7 @@ func (s *server) RenderSubmitFlagPage(c *gin.Context) {
 func (s *server) RenderSubmitFlagPageDetails(c *gin.Context, err string, success string) {
 	user := c.MustGet("user").(*models.User)
 	c.HTML(http.StatusOK, "/flag.tmpl", gin.H{
-		"CourseName":     "HSE Advanced C++",
+		"CourseName":     "HSE Basic C++",
 		"Config":         s.config,
 		"ErrorMessage":   err,
 		"SuccessMessage": success,
@@ -126,8 +126,8 @@ func (s *server) RenderHomePage(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "/home.tmpl", gin.H{
 		// FIXME(BigRedEye): Do not hardcode title
-		"CourseName": "HSE Advanced C++",
-		"Title":      "HSE Advanced C++",
+		"CourseName": "HSE Basic C++",
+		"Title":      "HSE Basic C++",
 		"Config":     s.config,
 		"Scores":     scores,
 		"Error":      err,
@@ -144,8 +144,8 @@ func (s *server) RenderCheaterPage(c *gin.Context) {
 	reverseScores(scores)
 
 	c.HTML(http.StatusOK, "/home.tmpl", gin.H{
-		"CourseName": "HSE Advanced C++",
-		"Title":      "HSE Advanced C++",
+		"CourseName": "HSE Basic C++",
+		"Title":      "HSE Basic C++",
 		"Config":     s.config,
 		"Scores":     scores,
 		"Error":      err,
@@ -160,10 +160,24 @@ func (s *server) RedirectToStandingsPage(c *gin.Context) {
 
 func (s *server) RenderStandingsPage(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	scores, err := s.scorer.CalcScoreboard(c.Param("group"))
+	scores, err := s.scorer.CalcScoreboard(c.Param("group"), "")
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
-		"CourseName": "HSE Advanced C++",
-		"Title":      "HSE Advanced C++",
+		"CourseName": "HSE Basic C++",
+		"Title":      "HSE Basic C++",
+		"Config":     s.config,
+		"Standings":  scores,
+		"Error":      err,
+		"Links":      s.makeLinks(user),
+		"Groups":     s.makeGroupLinks(),
+	})
+}
+
+func (s *server) RenderSubgroupStandingsPage(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	scores, err := s.scorer.CalcScoreboard(c.Param("group"), c.Param("subgroup"))
+	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
+		"CourseName": "HSE Basic C++",
+		"Title":      "HSE Basic C++",
 		"Config":     s.config,
 		"Standings":  scores,
 		"Error":      err,
@@ -174,10 +188,10 @@ func (s *server) RenderStandingsPage(c *gin.Context) {
 
 func (s *server) RenderStandingsCheaterPage(c *gin.Context) {
 	user, err := s.db.FindUserByGitlabLogin(c.Query("login"))
-	scores, err := s.scorer.CalcScoreboard("students")
+	scores, err := s.scorer.CalcScoreboard("students", "")
 	c.HTML(http.StatusOK, "/standings.tmpl", gin.H{
-		"CourseName": "HSE Advanced C++",
-		"Title":      "HSE Advanced C++",
+		"CourseName": "HSE Basic C++",
+		"Title":      "HSE Basic C++",
 		"Config":     s.config,
 		"Standings":  scores,
 		"Error":      err,

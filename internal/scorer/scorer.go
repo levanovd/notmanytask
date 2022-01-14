@@ -120,13 +120,13 @@ func (s Scorer) loadUserFlags(user *models.User, provider flagsProvider) (flagsM
 	return flagsMap, nil
 }
 
-func (s Scorer) CalcScoreboard(groupName string) (*Standings, error) {
+func (s Scorer) CalcScoreboard(groupName string, subgroupName string) (*Standings, error) {
 	currentDeadlines := s.deadlines.GroupDeadlines(groupName)
 	if currentDeadlines == nil {
 		return nil, fmt.Errorf("No deadlines found")
 	}
 
-	users, err := s.db.ListGroupUsers(groupName)
+	users, err := s.db.ListGroupUsers(groupName, subgroupName)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +261,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 		User: User{
 			FirstName:     user.FirstName,
 			LastName:      user.LastName,
+			Group:         user.GroupName,
 			Subgroup:      user.SubgroupName,
 			GitlabLogin:   *user.GitlabLogin,
 			GitlabProject: s.projects.MakeProjectName(user),
