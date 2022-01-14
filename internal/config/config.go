@@ -36,6 +36,7 @@ type EndpointsConfig struct {
 	Signup         string
 	Standings      string
 	GroupStandings string
+	SubgroupStandings string
 	OauthCallback  string
 
 	Api struct {
