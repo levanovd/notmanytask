@@ -160,6 +160,9 @@ func (s Scorer) CalcScoreboard(groupName string, subgroupName string) (*Standing
 		if scores[i].Score != scores[j].Score {
 			return scores[i].Score > scores[j].Score
 		}
+		if scores[i].TasksOnReview != scores[j].TasksOnReview {
+			return scores[i].TasksOnReview > scores[j].TasksOnReview
+		}
 		return scores[i].User.FullName() < scores[j].User.FullName()
 	})
 
@@ -272,6 +275,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 		tasks := make([]ScoredTask, len(group.Tasks))
 		totalScore := 0
 		maxTotalScore := 0
+		tasksOnReview := 0
 
 		for i, task := range group.Tasks {
 			tasks[i] = ScoredTask{
@@ -293,6 +297,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				mergeRequest, mergeRequestFound := mergeRequestsMap[task.Task]
 				if mergeRequestFound {
 					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
+					tasksOnReview++
 
 					if tasks[i].Status == models.PipelineStatusSuccess && mergeRequest.Status != models.MergeRequestMerged {
 						tasks[i].Status = TaskStatusOnReview
@@ -325,6 +330,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 		})
 		scores.Score += totalScore
 		scores.MaxScore += maxTotalScore
+		scores.TasksOnReview += tasksOnReview
 	}
 
 	return scores, nil
