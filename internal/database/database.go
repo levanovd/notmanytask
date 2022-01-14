@@ -116,7 +116,7 @@ func (db *DataBase) ListUsersWithoutRepos() ([]*models.User, error) {
 
 func (db *DataBase) ListGroupUsers(groupName string, subgroupName string) ([]*models.User, error) {
 	var users []*models.User
-	if (subgroupName != "") {
+	if subgroupName != "" {
 		err := db.Find(&users, "repository IS NOT NULL AND group_name = ? AND subgroup_name = ?", groupName, subgroupName).Order("created_at").Error
 		if err != nil {
 			return nil, err
