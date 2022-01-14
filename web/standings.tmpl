@@ -96,6 +96,7 @@
                         <tr>
                             <th scope="col" class="num">#</th>
                             <th scope="col" class="name">Student</th>
+                            <th scope="col" class="name">Group</th>
                             <th scope="col">Score</th>
                             {{ range .Standings.Deadlines }}
                                 {{ range .Tasks }}
@@ -109,6 +110,7 @@
                             <tr>
                                 <th scope="row" class="num">0</th>
                                 <th scope="row" class="name">Chuck Norris</th>
+                                <th scope="row" class="subgroup"></th>
                                 <td>{{ .MaxScore }}</td>
                                 {{ range .Groups }}
                                     {{ range .Tasks }}
@@ -121,6 +123,7 @@
                             <tr>
                                 <th scope="row" class="num">{{ inc $index }}</th>
                                 <th scope="row" class="name">{{ $user.User.FirstName }} {{ $user.User.LastName }}</th>
+                                <th scope="row" class="subgroup">{{ $user.User.Subgroup }}</th>
                                 <td>{{ $user.Score }}</td>
                                 {{ range $user.Groups }}
                                     {{ range .Tasks }}

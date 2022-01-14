@@ -261,6 +261,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 		User: User{
 			FirstName:     user.FirstName,
 			LastName:      user.LastName,
+			Subgroup:      user.SubgroupName,
 			GitlabLogin:   *user.GitlabLogin,
 			GitlabProject: s.projects.MakeProjectName(user),
 		},
