@@ -55,6 +55,7 @@ type ScoredTaskGroup struct {
 type User struct {
 	FirstName     string
 	LastName      string
+	Subgroup      string
 	GitlabLogin   string
 	GitlabProject string
 }
