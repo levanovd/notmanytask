@@ -307,7 +307,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 							tasks[i].Status = TaskStatusOnReview
 							tasks[i].Score = 0
 						} else if mergeRequest.Status == models.MergeRequestPending {
-							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", mergeRequest.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", pipeline.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
 							tasks[i].Status = TaskStatusPending
 							tasks[i].Score = 0
 						}
