@@ -299,9 +299,13 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
 					tasksOnReview++
 
-					if tasks[i].Status == models.PipelineStatusSuccess && mergeRequest.Status != models.MergeRequestMerged {
-						tasks[i].Status = TaskStatusOnReview
+					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasks[i].Score = 0
+						if mergeRequest.Status == models.MergeRequestOnReview {
+							tasks[i].Status = TaskStatusOnReview
+						} else if mergeRequest.Status == models.MergeRequestPending {
+							tasks[i].Status = TaskStatusPending
+						}
 					}
 				}
 			} else {
