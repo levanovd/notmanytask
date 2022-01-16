@@ -81,7 +81,7 @@ func Run() error {
 		return errors.Wrap(err, "Failed to create merge requests updater")
 	}
 
-	scorer := scorer.NewScorer(db, deadlines, git)
+	scorer := scorer.NewScorer(db, deadlines, git, config.GitLab.ReviewTtl)
 
 	wg.Add(4)
 	go func() {

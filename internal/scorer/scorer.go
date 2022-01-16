@@ -27,10 +27,11 @@ type Scorer struct {
 	deadlines *deadlines.Fetcher
 	db        *database.DataBase
 	projects  ProjectNameFactory
+	reviewTtl time.Duration
 }
 
-func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory) *Scorer {
-	return &Scorer{deadlines, db, projects}
+func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory, reviewTtl time.Duration) *Scorer {
+	return &Scorer{deadlines, db, projects, reviewTtl}
 }
 
 const (
@@ -284,7 +285,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				Status:         TaskStatusAssigned,
 				Score:          0,
 				MaxScore:       task.Score,
-				TimeUntilMerge: 0,
+				TimeUntilMerge: "",
 				TaskUrl:        s.projects.MakeTaskUrl(task.Task),
 			}
 			maxTotalScore += tasks[i].MaxScore
@@ -306,7 +307,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 						if mergeRequest.Status == models.MergeRequestOnReview {
 							tasks[i].Status = TaskStatusOnReview
 						} else if mergeRequest.Status == models.MergeRequestPending {
-							tasks[i].TimeUntilMerge = mergeRequest.StartedAt
+							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", mergeRequest.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
 							tasks[i].Status = TaskStatusPending
 						}
 					}
