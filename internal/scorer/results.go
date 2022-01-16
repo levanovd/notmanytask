@@ -11,6 +11,7 @@ const (
 	TaskStatusChecking = "checking"
 	TaskStatusSuccess  = "success"
 	TaskStatusOnReview = "on_review"
+	TaskStatusPending  = "pending"
 )
 
 type TaskStatus = string
