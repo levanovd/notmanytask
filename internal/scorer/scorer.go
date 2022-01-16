@@ -279,12 +279,13 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 
 		for i, task := range group.Tasks {
 			tasks[i] = ScoredTask{
-				Task:      task.Task,
-				ShortName: makeShortTaskName(task.Task),
-				Status:    TaskStatusAssigned,
-				Score:     0,
-				MaxScore:  task.Score,
-				TaskUrl:   s.projects.MakeTaskUrl(task.Task),
+				Task:           task.Task,
+				ShortName:      makeShortTaskName(task.Task),
+				Status:         TaskStatusAssigned,
+				Score:          0,
+				MaxScore:       task.Score,
+				TimeUntilMerge: 0,
+				TaskUrl:        s.projects.MakeTaskUrl(task.Task),
 			}
 			maxTotalScore += tasks[i].MaxScore
 
@@ -305,6 +306,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 						if mergeRequest.Status == models.MergeRequestOnReview {
 							tasks[i].Status = TaskStatusOnReview
 						} else if mergeRequest.Status == models.MergeRequestPending {
+							tasks[i].TimeUntilMerge = mergeRequest.StartedAt
 							tasks[i].Status = TaskStatusPending
 						}
 					}

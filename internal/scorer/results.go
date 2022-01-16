@@ -3,6 +3,7 @@ package scorer
 import (
 	"github.com/bigredeye/notmanytask/internal/deadlines"
 	"github.com/bigredeye/notmanytask/internal/models"
+	"time"
 )
 
 const (
@@ -35,9 +36,10 @@ type ScoredTask struct {
 	Task      string
 	ShortName string
 
-	Status   TaskStatus
-	Score    int
-	MaxScore int
+	Status         TaskStatus
+	Score          int
+	MaxScore       int
+	TimeUntilMerge time.Duration
 
 	TaskUrl     string
 	PipelineUrl string
