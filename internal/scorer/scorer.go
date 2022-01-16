@@ -27,10 +27,11 @@ type Scorer struct {
 	deadlines *deadlines.Fetcher
 	db        *database.DataBase
 	projects  ProjectNameFactory
+	reviewTtl time.Duration
 }
 
-func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory) *Scorer {
-	return &Scorer{deadlines, db, projects}
+func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory, reviewTtl time.Duration) *Scorer {
+	return &Scorer{deadlines, db, projects, reviewTtl}
 }
 
 const (
@@ -279,12 +280,13 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 
 		for i, task := range group.Tasks {
 			tasks[i] = ScoredTask{
-				Task:      task.Task,
-				ShortName: makeShortTaskName(task.Task),
-				Status:    TaskStatusAssigned,
-				Score:     0,
-				MaxScore:  task.Score,
-				TaskUrl:   s.projects.MakeTaskUrl(task.Task),
+				Task:           task.Task,
+				ShortName:      makeShortTaskName(task.Task),
+				Status:         TaskStatusAssigned,
+				Score:          0,
+				MaxScore:       task.Score,
+				TimeUntilMerge: "",
+				TaskUrl:        s.projects.MakeTaskUrl(task.Task),
 			}
 			maxTotalScore += tasks[i].MaxScore
 
@@ -305,6 +307,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 							tasks[i].Status = TaskStatusOnReview
 							tasks[i].Score = 0
 						} else if mergeRequest.Status == models.MergeRequestPending {
+							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", mergeRequest.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
 							tasks[i].Status = TaskStatusPending
 							tasks[i].Score = 0
 						}

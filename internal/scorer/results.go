@@ -35,9 +35,10 @@ type ScoredTask struct {
 	Task      string
 	ShortName string
 
-	Status   TaskStatus
-	Score    int
-	MaxScore int
+	Status         TaskStatus
+	Score          int
+	MaxScore       int
+	TimeUntilMerge string
 
 	TaskUrl     string
 	PipelineUrl string
