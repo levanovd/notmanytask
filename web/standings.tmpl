@@ -139,6 +139,8 @@
                                             <td class="task table-warning">
                                         {{ else if eq .Status "on_review"}}
                                             <td class="task table-info">
+                                        {{ else if eq .Status "checking"}}
+                                            <td class="task table-warning">
                                         {{ else }}
                                             <td class="task">
                                         {{ end }}
