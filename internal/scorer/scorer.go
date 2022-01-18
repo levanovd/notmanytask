@@ -312,6 +312,9 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 							tasks[i].Score = 0
 						}
 					}
+				} else {
+					tasks[i].Status = TaskStatusChecking
+					tasks[i].Score = 0
 				}
 			} else {
 				flag, found := flagsMap[task.Task]
