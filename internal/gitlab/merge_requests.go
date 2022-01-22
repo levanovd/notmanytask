@@ -19,6 +19,11 @@ type MergeRequestsUpdater struct {
 	db     *database.DataBase
 }
 
+type branchMergeRequests struct {
+	Open   *gitlab.MergeRequest
+	Merged *gitlab.MergeRequest
+}
+
 func NewMergeRequestsUpdater(client *Client, db *database.DataBase) (*MergeRequestsUpdater, error) {
 	return &MergeRequestsUpdater{
 		Client: client,
@@ -39,17 +44,6 @@ func (p MergeRequestsUpdater) Run(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (p MergeRequestsUpdater) addMergeRequest(projectName string, mergeRequest *gitlab.MergeRequest) error {
-	return p.db.AddMergeRequest(&models.MergeRequest{
-		ID:        mergeRequest.ID,
-		Task:      ParseTaskFromBranch(mergeRequest.SourceBranch),
-		Status:    getMergeRequestState(mergeRequest),
-		Project:   projectName,
-		StartedAt: *mergeRequest.CreatedAt,
-		IID:       mergeRequest.IID,
-	})
 }
 
 func getMergeRequestState(mergeRequest *gitlab.MergeRequest) models.MergeRequestStatus {
@@ -84,27 +78,9 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 					continue
 				}
 				task := ParseTaskFromBranch(branch.Name)
-				mergeRequest, err := p.db.FindMergeRequest(project.Name, task)
-				if err != nil {
-					p.logger.Error("Failed to find merge request", zap.Error(err))
-					continue
-				}
-				if mergeRequest != nil {
-					p.logger.Info("Found merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-					err = p.updateMergeRequest(project.ID, mergeRequest, reviewMergeRequestDeadline)
-					if err != nil {
-						p.logger.Error("Failed to update merge request", zap.Error(err))
-					}
-					continue
-				}
-				mergeRequestCreated, err := p.createMergeRequest(project.ID, branch.Name)
-				if err != nil {
-					p.logger.Error("Failed to create merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-					continue
-				}
-				if err = p.addMergeRequest(project.Name, mergeRequestCreated); err != nil {
-					p.logger.Error("Failed to add merge request", zap.Error(err), lf.ProjectName(project.Name), lf.MergeRequestID(mergeRequest.ID))
-				}
+
+				p.manageGitlabMergeRequests(project, branch, task, reviewMergeRequestDeadline)
+				p.syncDbMergeRequests(project, branch, task)
 			}
 
 			if resp.CurrentPage >= resp.TotalPages {
@@ -123,6 +99,79 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 	}
 }
 
+func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project, branch *gitlab.Branch, task string, reviewDeadline time.Time) {
+	mergeRequests, err := p.getBranchMergeRequests(project, branch)
+	if err != nil {
+		return
+	}
+
+	if mergeRequests.Merged == nil {
+		if mergeRequests.Open == nil {
+			p.logger.Info("Have no merged or open MRs, creating a new one", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+			_, err = p.createMergeRequest(project.ID, branch.Name)
+			if err != nil {
+				p.logger.Error("Failed to create merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+				return
+			}
+		} else {
+			p.logger.Info("Got an open merge request from gitlab", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+
+			pipeline, err := p.db.FindLatestPipeline(project.Name, task)
+			if err != nil {
+				p.logger.Error("Failed to find latest pipeline for merge request", zap.Error(err))
+				return
+			}
+			p.logger.Info("Found latest pipeline", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+
+			if mergeRequests.Open.MergeStatus == "can_be_merged" &&
+				mergeRequests.Open.UserNotesCount == 0 &&
+				pipeline.StartedAt.Before(reviewDeadline) &&
+				pipeline.Status == models.PipelineStatusSuccess {
+				mergeCommitMessage := "Automatic merge"
+				options := &gitlab.AcceptMergeRequestOptions{
+					MergeCommitMessage: &mergeCommitMessage,
+				}
+				_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project, mergeRequests.Open.IID, options)
+				if err != nil {
+					p.logger.Error("Failed to accept merge request", zap.Error(err))
+					return
+				}
+				p.logger.Info("Accepted merge request", lf.ProjectName(project.Name), lf.BranchName(task))
+			}
+		}
+	} else {
+		p.logger.Info("Has closed merge requests, will do nothing", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+	}
+}
+
+func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branch *gitlab.Branch, task string) {
+	mergeRequests, err := p.getBranchMergeRequests(project, branch)
+	if err != nil {
+		return
+	}
+
+	var mr *gitlab.MergeRequest
+	if mergeRequests.Open != nil {
+		mr = mergeRequests.Open
+		p.logger.Info("Found an open merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+	}
+	if mergeRequests.Merged != nil {
+		mr = mergeRequests.Merged
+		p.logger.Info("Found a merged merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+	}
+
+	err = p.db.AddMergeRequest(&models.MergeRequest{
+		Task:      task,
+		Status:    getMergeRequestState(mr),
+		Project:   project.Name,
+		StartedAt: *mr.CreatedAt,
+	})
+	if err != nil {
+		p.logger.Error("Failed to update merge request in db", zap.Error(err))
+		return
+	}
+}
+
 func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*gitlab.MergeRequest, error) {
 	main := "main"
 	options := &gitlab.CreateMergeRequestOptions{
@@ -138,45 +187,30 @@ func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*g
 	return mergeRequest, nil
 }
 
-func (p MergeRequestsUpdater) updateMergeRequest(project int, mergeRequest *models.MergeRequest, reviewDeadline time.Time) error {
-	options := &gitlab.GetMergeRequestsOptions{}
-	gitlabMergeRequest, _, err := p.gitlab.MergeRequests.GetMergeRequest(project, mergeRequest.IID, options)
-	if err != nil {
-		p.logger.Error("Failed to get merge request", zap.Error(err))
-		return err
-	}
-	p.logger.Info("Got merge request from gitlab", lf.ProjectName(mergeRequest.Project), lf.BranchName(mergeRequest.Task))
+func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, branch *gitlab.Branch) (*branchMergeRequests, error) {
+	result := branchMergeRequests{}
 
-	pipeline, err := p.db.FindLatestPipeline(mergeRequest.Project, mergeRequest.Task)
-	if err != nil {
-		p.logger.Error("Failed to find latest pipeline for merge request", zap.Error(err))
-		return err
+	options := &gitlab. {
+		SourceBranch: &branch.Name,
 	}
-	p.logger.Info("Found latest pipeline", lf.ProjectName(mergeRequest.Project), lf.BranchName(mergeRequest.Task))
 
-	if gitlabMergeRequest.MergeStatus == "can_be_merged" &&
-		gitlabMergeRequest.UserNotesCount == 0 &&
-		pipeline.StartedAt.Before(reviewDeadline) &&
-		pipeline.Status == models.PipelineStatusSuccess {
-		mergeCommitMessage := "Automatic merge"
-		options := &gitlab.AcceptMergeRequestOptions{
-			MergeCommitMessage: &mergeCommitMessage,
+	gitlabMergeRequests, _, err := p.gitlab.MergeRequests.ListProjectMergeRequests(project.ID, options)
+	if err != nil {
+		p.logger.Error("Failed to get branch merge requests", zap.Error(err))
+		return nil, err
+	}
+
+	for _, mr := range gitlabMergeRequests {
+		if mr.State == "opened" {
+			if result.Open == nil || result.Open.CreatedAt.Before(*mr.CreatedAt) {
+				result.Open = mr
+			}
+		} else if mr.State == "merged" {
+			if result.Merged == nil || result.Merged.CreatedAt.Before(*mr.CreatedAt) {
+				result.Merged = mr
+			}
 		}
-		_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project, mergeRequest.IID, options)
-		if err != nil {
-			p.logger.Error("Failed to accept merge request", zap.Error(err))
-			return err
-		}
-		p.logger.Info("Accepted merge request", lf.ProjectName(mergeRequest.Project), lf.BranchName(mergeRequest.Task))
-		mergeRequest.Status = models.MergeRequestMerged
-	} else {
-		mergeRequest.Status = getMergeRequestState(gitlabMergeRequest)
 	}
 
-	err = p.db.AddMergeRequest(mergeRequest)
-	if err != nil {
-		p.logger.Error("Failed to update merge request in db", zap.Error(err))
-		return err
-	}
-	return nil
+	return &result, nil
 }
