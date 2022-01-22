@@ -28,16 +28,16 @@ type GitLabConfig struct {
 }
 
 type EndpointsConfig struct {
-	HostName       string
-	Home           string
-	Flag           string
-	Login          string
-	Logout         string
-	Signup         string
-	Standings      string
-	GroupStandings string
+	HostName          string
+	Home              string
+	Flag              string
+	Login             string
+	Logout            string
+	Signup            string
+	Standings         string
+	GroupStandings    string
 	SubgroupStandings string
-	OauthCallback  string
+	OauthCallback     string
 
 	Api struct {
 		Report string
@@ -79,10 +79,11 @@ type GroupConfig struct {
 type GroupsConfig = []GroupConfig
 
 type PullIntervalsConfig struct {
-	Projects      time.Duration
-	Deadlines     time.Duration
-	Pipelines     time.Duration
-	MergeRequests time.Duration
+	Projects             time.Duration
+	Deadlines            time.Duration
+	Pipelines            time.Duration
+	MergeRequestsUpdater time.Duration
+	MergeRequestsSyncer  time.Duration
 }
 
 type Config struct {

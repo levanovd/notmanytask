@@ -20,8 +20,8 @@ type MergeRequestsUpdater struct {
 }
 
 type branchMergeRequests struct {
-	Open   *gitlab.MergeRequest
-	Merged *gitlab.MergeRequest
+	Open   *models.MergeRequest
+	Merged *models.MergeRequest
 }
 
 func NewMergeRequestsUpdater(client *Client, db *database.DataBase) (*MergeRequestsUpdater, error) {
@@ -33,14 +33,14 @@ func NewMergeRequestsUpdater(client *Client, db *database.DataBase) (*MergeReque
 }
 
 func (p MergeRequestsUpdater) Run(ctx context.Context) {
-	tick := time.Tick(p.config.PullIntervals.MergeRequests)
+	tick := time.Tick(p.config.PullIntervals.MergeRequestsUpdater)
 
 	for {
 		select {
 		case <-tick:
 			p.updateMergeRequests()
 		case <-ctx.Done():
-			p.logger.Info("Stopping merge requests fetcher")
+			p.logger.Info("Stopping merge requests updater")
 			return
 		}
 	}
@@ -58,7 +58,7 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 		for {
 			branches, resp, err := p.gitlab.Branches.ListBranches(project.ID, options)
 			if err != nil {
-				p.logger.Error("Failed to list branches", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+				p.logger.Error("Failed to list branches", zap.Error(err), lf.ProjectName(project.Name))
 				return err
 			}
 
@@ -70,7 +70,6 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 				task := ParseTaskFromBranch(branch.Name)
 
 				p.manageGitlabMergeRequests(project, branch, task, reviewMergeRequestDeadline)
-				p.syncDbMergeRequests(project, branch, task)
 			}
 
 			if resp.CurrentPage >= resp.TotalPages {
@@ -136,48 +135,6 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 	}
 }
 
-func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branch *gitlab.Branch, task string) {
-	p.logger.Info("Syncing MR states to DB", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-
-	mergeRequests, err := p.getBranchMergeRequests(project, branch)
-	if err != nil {
-		p.logger.Error("Failed to ger MRs from gitlab", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-		return
-	}
-
-	var mr *gitlab.MergeRequest
-	if mergeRequests.Open != nil {
-		mr = mergeRequests.Open
-		p.logger.Info("Found an open merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-	}
-	if mergeRequests.Merged != nil {
-		mr = mergeRequests.Merged
-		p.logger.Info("Found a merged merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-	}
-	if mr == nil {
-		p.logger.Info("There are no open or merged MRs", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-		err = p.db.RemoveMergeRequest(project.Name, branch.Name)
-		if err != nil {
-			p.logger.Info("Failed to remove MR from DB", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-			return
-		}
-		return
-	}
-
-	err = p.db.AddMergeRequest(&models.MergeRequest{
-		Task:           task,
-		Project:        project.Name,
-		State:          mr.State,
-		UserNotesCount: mr.UserNotesCount,
-		StartedAt:      *mr.CreatedAt,
-		IID:            mr.IID,
-	})
-	if err != nil {
-		p.logger.Error("Failed to update merge request in db", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-		return
-	}
-}
-
 func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*gitlab.MergeRequest, error) {
 	main := "main"
 	options := &gitlab.CreateMergeRequestOptions{
@@ -195,27 +152,21 @@ func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*g
 
 func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, branch *gitlab.Branch) (*branchMergeRequests, error) {
 	result := branchMergeRequests{}
-	main := "main"
 
-	options := &gitlab.ListProjectMergeRequestsOptions{
-		SourceBranch: &branch.Name,
-		TargetBranch: &main,
-	}
-
-	gitlabMergeRequests, _, err := p.gitlab.MergeRequests.ListProjectMergeRequests(project.ID, options)
+	mergeRequests, err := p.db.ListProjectBranchMergeRequests(project.Name, ParseTaskFromBranch(branch.Name))
 	if err != nil {
-		p.logger.Error("Failed to get branch merge requests", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+		p.logger.Error("Failed to list branch merge requests", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 		return nil, err
 	}
 
-	for _, mr := range gitlabMergeRequests {
+	for _, mr := range mergeRequests {
 		if mr.State == "opened" {
-			if result.Open == nil || result.Open.CreatedAt.Before(*mr.CreatedAt) {
-				result.Open = mr
+			if result.Open == nil || result.Open.StartedAt.Before(mr.StartedAt) {
+				result.Open = &mr
 			}
 		} else if mr.State == "merged" {
-			if result.Merged == nil || result.Merged.CreatedAt.Before(*mr.CreatedAt) {
-				result.Merged = mr
+			if result.Merged == nil || result.Merged.StartedAt.Before(mr.StartedAt) {
+				result.Merged = &mr
 			}
 		}
 	}

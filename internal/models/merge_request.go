@@ -13,11 +13,13 @@ const (
 type MergeRequestStatus = string
 
 type MergeRequest struct {
-	Project string `gorm:"primaryKey"`
-	Task    string `gorm:"primaryKey"`
+	ID      int    `gorm:"primaryKey"`
+	Project string `gorm:"index"`
+	Task    string `gorm:"index"`
 
 	State          string
 	UserNotesCount int
 	StartedAt      time.Time
+	MergeStatus    string
 	IID            int
 }
