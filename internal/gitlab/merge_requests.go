@@ -165,6 +165,7 @@ func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branc
 		Status:    getMergeRequestState(mr),
 		Project:   project.Name,
 		StartedAt: *mr.CreatedAt,
+		IID:       mr.IID,
 	})
 	if err != nil {
 		p.logger.Error("Failed to update merge request in db", zap.Error(err))
