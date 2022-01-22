@@ -127,7 +127,7 @@ func (db *DataBase) ListGroupUsers(groupName string, subgroupName string) ([]*mo
 			return nil, err
 		}
 	}
-	
+
 	return users, nil
 }
 
@@ -280,8 +280,7 @@ func (db *DataBase) ListSubmittedFlags() (flags []models.Flag, err error) {
 
 func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 	return db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status"}),
+		UpdateAll: true,
 	}).Create(mergeRequest).Error
 }
 
