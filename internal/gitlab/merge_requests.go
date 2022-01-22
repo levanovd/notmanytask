@@ -132,7 +132,7 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 			}
 		}
 	} else {
-		p.logger.Info("Has closed merge requests, will do nothing", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+		p.logger.Info("Has merged merge requests, will do nothing", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 	}
 }
 
