@@ -35,36 +35,23 @@ func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects Pro
 }
 
 const (
-	taskStatusAssigned = iota
-	taskStatusFailed
-	taskStatusChecking
-	taskStatusSuccess
+	mergeRequestStatusClosed = iota
+	mergeRequestStatusPending
+	mergeRequestStatusOnReview
+	mergeRequestStatusMerged
 )
 
-type taskStatus = int
+type mergeRequestStatus = int
 
-func classifyPipelineStatus(status models.PipelineStatus) taskStatus {
-	switch status {
-	case models.PipelineStatusFailed:
-		return taskStatusFailed
-	case models.PipelineStatusPending:
-		return taskStatusChecking
-	case models.PipelineStatusRunning:
-		return taskStatusChecking
-	case models.PipelineStatusSuccess:
-		return taskStatusSuccess
-	default:
-		return taskStatusAssigned
-	}
-}
-
-func getMergeRequestState(mergeRequest *models.MergeRequest) models.MergeRequestStatus {
-	if mergeRequest.State == "merged" {
-		return models.MergeRequestMerged
+func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus {
+	if mergeRequest.State == "closed" {
+		return mergeRequestStatusClosed
+	} else if mergeRequest.State == "merged" {
+		return mergeRequestStatusMerged
 	} else if mergeRequest.UserNotesCount > 0 {
-		return models.MergeRequestOnReview
+		return mergeRequestStatusOnReview
 	} else {
-		return models.MergeRequestPending
+		return mergeRequestStatusPending
 	}
 }
 
@@ -80,7 +67,7 @@ type flagsProvider = func(gitlabLogin string) (flags []models.Flag, err error)
 func (s Scorer) loadUserPipelines(user *models.User, provider pipelinesProvider) (pipelinesMap, error) {
 	pipelines, err := provider(s.projects.MakeProjectName(user))
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to list use rpipelines")
+		return nil, errors.Wrap(err, "Failed to list user pipelines")
 	}
 
 	pipelinesMap := make(pipelinesMap)
@@ -105,7 +92,7 @@ func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsP
 	for i := range mergeRequests {
 		mergeRequest := &mergeRequests[i]
 		prev, found := mergeRequestsMap[mergeRequest.Task]
-		if !found || getMergeRequestState(mergeRequest) != models.MergeRequestMerged {
+		if !found || getMergeRequestStatus(mergeRequest) > getMergeRequestStatus(prev) {
 			prev = mergeRequest
 		}
 		mergeRequestsMap[mergeRequest.Task] = prev
