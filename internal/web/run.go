@@ -74,16 +74,23 @@ func Run() error {
 		return errors.Wrap(err, "Failed to create projects maker")
 	}
 
-	mergeRequestsCtx, mergeRequestsCancel := context.WithCancel(ctx)
-	defer mergeRequestsCancel()
-	mergeRequests, err := gitlab.NewMergeRequestsUpdater(git, db)
+	mergeRequestsUpdaterCtx, mergeRequestsUpdaterCancel := context.WithCancel(ctx)
+	defer mergeRequestsUpdaterCancel()
+	mergeRequestsUpdater, err := gitlab.NewMergeRequestsUpdater(git, db)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create merge requests updater")
+	}
+
+	mergeRequestsSyncerCtx, mergeRequestsSyncerCancel := context.WithCancel(ctx)
+	defer mergeRequestsSyncerCancel()
+	mergeRequestsSyncer, err := gitlab.NewMergeRequestsSyncer(git, db)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create merge requests updater")
 	}
 
 	scorer := scorer.NewScorer(db, deadlines, git, config.GitLab.ReviewTtl)
 
-	wg.Add(4)
+	wg.Add(5)
 	go func() {
 		defer wg.Done()
 		deadlines.Run(deadlinesCtx)
@@ -98,7 +105,11 @@ func Run() error {
 	}()
 	go func() {
 		defer wg.Done()
-		mergeRequests.Run(mergeRequestsCtx)
+		mergeRequestsUpdater.Run(mergeRequestsUpdaterCtx)
+	}()
+	go func() {
+		defer wg.Done()
+		mergeRequestsSyncer.Run(mergeRequestsSyncerCtx)
 	}()
 
 	s, err := newServer(config, logger.Named("server"), db, deadlines, projects, pipelines, scorer, git)

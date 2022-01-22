@@ -127,7 +127,7 @@ func (db *DataBase) ListGroupUsers(groupName string, subgroupName string) ([]*mo
 			return nil, err
 		}
 	}
-	
+
 	return users, nil
 }
 
@@ -281,20 +281,17 @@ func (db *DataBase) ListSubmittedFlags() (flags []models.Flag, err error) {
 func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status"}),
+		DoUpdates: clause.AssignmentColumns([]string{"state", "created_at", "i_id", "user_notes_count"}),
 	}).Create(mergeRequest).Error
 }
 
-func (db *DataBase) FindMergeRequest(project string, task string) (*models.MergeRequest, error) {
-	var mergeRequest models.MergeRequest
-	res := db.DB.Where("project = ? AND task = ?", project, task).Take(&mergeRequest)
-	if res.Error == gorm.ErrRecordNotFound {
-		return nil, nil
+func (db *DataBase) ListProjectBranchMergeRequests(project string, task string) (mergeRequests []models.MergeRequest, err error) {
+	mergeRequests = make([]models.MergeRequest, 0)
+	err = db.DB.Find(mergeRequests, "project = ? AND task = ?", project, task).Error
+	if err != nil {
+		mergeRequests = nil
 	}
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	return &mergeRequest, nil
+	return
 }
 
 func (db *DataBase) ListProjectMergeRequests(project string) (mergeRequests []models.MergeRequest, err error) {

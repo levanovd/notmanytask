@@ -35,26 +35,23 @@ func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects Pro
 }
 
 const (
-	taskStatusAssigned = iota
-	taskStatusFailed
-	taskStatusChecking
-	taskStatusSuccess
+	mergeRequestStatusClosed = iota
+	mergeRequestStatusPending
+	mergeRequestStatusOnReview
+	mergeRequestStatusMerged
 )
 
-type taskStatus = int
+type mergeRequestStatus = int
 
-func classifyPipelineStatus(status models.PipelineStatus) taskStatus {
-	switch status {
-	case models.PipelineStatusFailed:
-		return taskStatusFailed
-	case models.PipelineStatusPending:
-		return taskStatusChecking
-	case models.PipelineStatusRunning:
-		return taskStatusChecking
-	case models.PipelineStatusSuccess:
-		return taskStatusSuccess
-	default:
-		return taskStatusAssigned
+func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus {
+	if mergeRequest.State == "closed" {
+		return mergeRequestStatusClosed
+	} else if mergeRequest.State == "merged" {
+		return mergeRequestStatusMerged
+	} else if mergeRequest.UserNotesCount > 0 {
+		return mergeRequestStatusOnReview
+	} else {
+		return mergeRequestStatusPending
 	}
 }
 
@@ -70,7 +67,7 @@ type flagsProvider = func(gitlabLogin string) (flags []models.Flag, err error)
 func (s Scorer) loadUserPipelines(user *models.User, provider pipelinesProvider) (pipelinesMap, error) {
 	pipelines, err := provider(s.projects.MakeProjectName(user))
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to list use rpipelines")
+		return nil, errors.Wrap(err, "Failed to list user pipelines")
 	}
 
 	pipelinesMap := make(pipelinesMap)
@@ -95,7 +92,7 @@ func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsP
 	for i := range mergeRequests {
 		mergeRequest := &mergeRequests[i]
 		prev, found := mergeRequestsMap[mergeRequest.Task]
-		if !found || mergeRequest.Status != models.MergeRequestMerged {
+		if !found || getMergeRequestStatus(mergeRequest) > getMergeRequestStatus(prev) {
 			prev = mergeRequest
 		}
 		mergeRequestsMap[mergeRequest.Task] = prev
@@ -302,12 +299,16 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 
 					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasksOnReview++
+						mrStatus := getMergeRequestStatus(mergeRequest)
 
-						if mergeRequest.Status == models.MergeRequestOnReview {
+						if mrStatus == mergeRequestStatusOnReview {
 							tasks[i].Status = TaskStatusOnReview
 							tasks[i].Score = 0
-						} else if mergeRequest.Status == models.MergeRequestPending {
+						} else if mrStatus == mergeRequestStatusPending {
 							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", pipeline.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+							tasks[i].Status = TaskStatusPending
+							tasks[i].Score = 0
+						} else if mrStatus == mergeRequestStatusClosed {
 							tasks[i].Status = TaskStatusPending
 							tasks[i].Score = 0
 						}
