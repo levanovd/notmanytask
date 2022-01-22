@@ -90,7 +90,7 @@ func Run() error {
 
 	scorer := scorer.NewScorer(db, deadlines, git, config.GitLab.ReviewTtl)
 
-	wg.Add(4)
+	wg.Add(5)
 	go func() {
 		defer wg.Done()
 		deadlines.Run(deadlinesCtx)
