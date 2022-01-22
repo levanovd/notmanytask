@@ -100,6 +100,8 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 }
 
 func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project, branch *gitlab.Branch, task string, reviewDeadline time.Time) {
+	p.logger.Info("Managing MRs at gitlab", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+
 	mergeRequests, err := p.getBranchMergeRequests(project, branch)
 	if err != nil {
 		return
@@ -145,6 +147,8 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 }
 
 func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branch *gitlab.Branch, task string) {
+	p.logger.Info("Syncing MR states to DB", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+
 	mergeRequests, err := p.getBranchMergeRequests(project, branch)
 	if err != nil {
 		return
