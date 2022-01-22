@@ -284,6 +284,13 @@ func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 	}).Create(mergeRequest).Error
 }
 
+func (db *DataBase) RemoveMergeRequest(project string, task string) error {
+	return db.Delete(&models.MergeRequest{
+		Project: project,
+		Task:    task,
+	}).Error
+}
+
 func (db *DataBase) FindMergeRequest(project string, task string) (*models.MergeRequest, error) {
 	var mergeRequest models.MergeRequest
 	res := db.DB.Where("project = ? AND task = ?", project, task).Take(&mergeRequest)

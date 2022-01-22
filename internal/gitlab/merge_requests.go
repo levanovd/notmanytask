@@ -58,7 +58,7 @@ func (p MergeRequestsUpdater) updateMergeRequests() {
 		for {
 			branches, resp, err := p.gitlab.Branches.ListBranches(project.ID, options)
 			if err != nil {
-				p.logger.Error("Failed to list branches", zap.Error(err))
+				p.logger.Error("Failed to list branches", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 				return err
 			}
 
@@ -110,7 +110,7 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 
 			pipeline, err := p.db.FindLatestPipeline(project.Name, task)
 			if err != nil {
-				p.logger.Error("Failed to find latest pipeline for merge request", zap.Error(err))
+				p.logger.Error("Failed to find latest pipeline for merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 				return
 			}
 			p.logger.Info("Found latest pipeline", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
@@ -125,7 +125,7 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 				}
 				_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project, mergeRequests.Open.IID, options)
 				if err != nil {
-					p.logger.Error("Failed to accept merge request", zap.Error(err))
+					p.logger.Error("Failed to accept merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 					return
 				}
 				p.logger.Info("Accepted merge request", lf.ProjectName(project.Name), lf.BranchName(task))
@@ -156,6 +156,11 @@ func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branc
 	}
 	if mr == nil {
 		p.logger.Info("There are no open or merged MRs", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+		err = p.db.RemoveMergeRequest(project.Name, branch.Name)
+		if err != nil {
+			p.logger.Info("Failed to remove MR from DB", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+			return
+		}
 		return
 	}
 
@@ -199,7 +204,7 @@ func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, br
 
 	gitlabMergeRequests, _, err := p.gitlab.MergeRequests.ListProjectMergeRequests(project.ID, options)
 	if err != nil {
-		p.logger.Error("Failed to get branch merge requests", zap.Error(err))
+		p.logger.Error("Failed to get branch merge requests", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 		return nil, err
 	}
 
