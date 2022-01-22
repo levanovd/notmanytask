@@ -190,7 +190,7 @@ func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*g
 func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, branch *gitlab.Branch) (*branchMergeRequests, error) {
 	result := branchMergeRequests{}
 
-	options := &gitlab. {
+	options := &gitlab.ListProjectMergeRequestsOptions{
 		SourceBranch: &branch.Name,
 	}
 
