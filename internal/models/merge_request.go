@@ -16,7 +16,8 @@ type MergeRequest struct {
 	Project string `gorm:"primaryKey"`
 	Task    string `gorm:"primaryKey"`
 
-	Status    MergeRequestStatus
-	StartedAt time.Time
-	IID       int
+	State          string
+	UserNotesCount int
+	StartedAt      time.Time
+	IID            int
 }

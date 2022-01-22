@@ -46,16 +46,6 @@ func (p MergeRequestsUpdater) Run(ctx context.Context) {
 	}
 }
 
-func getMergeRequestState(mergeRequest *gitlab.MergeRequest) models.MergeRequestStatus {
-	if mergeRequest.State == "merged" {
-		return models.MergeRequestMerged
-	} else if mergeRequest.UserNotesCount > 0 {
-		return models.MergeRequestOnReview
-	} else {
-		return models.MergeRequestPending
-	}
-}
-
 func (p MergeRequestsUpdater) updateMergeRequests() {
 	p.logger.Info("Start merge requests creator iteration")
 	defer p.logger.Info("Finish merge requests creator iteration")
@@ -164,13 +154,18 @@ func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branc
 		mr = mergeRequests.Merged
 		p.logger.Info("Found a merged merge request", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 	}
+	if mr == nil {
+		p.logger.Info("There are no open or merged MRs", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
+		return
+	}
 
 	err = p.db.AddMergeRequest(&models.MergeRequest{
-		Task:      task,
-		Status:    getMergeRequestState(mr),
-		Project:   project.Name,
-		StartedAt: *mr.CreatedAt,
-		IID:       mr.IID,
+		Task:           task,
+		Project:        project.Name,
+		State:          mr.State,
+		UserNotesCount: mr.UserNotesCount,
+		StartedAt:      *mr.CreatedAt,
+		IID:            mr.IID,
 	})
 	if err != nil {
 		p.logger.Error("Failed to update merge request in db", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))

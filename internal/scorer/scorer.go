@@ -58,6 +58,16 @@ func classifyPipelineStatus(status models.PipelineStatus) taskStatus {
 	}
 }
 
+func getMergeRequestState(mergeRequest *models.MergeRequest) models.MergeRequestStatus {
+	if mergeRequest.State == "merged" {
+		return models.MergeRequestMerged
+	} else if mergeRequest.UserNotesCount > 0 {
+		return models.MergeRequestOnReview
+	} else {
+		return models.MergeRequestPending
+	}
+}
+
 // TODO(BigRedEye): Unify submits?
 type pipelinesMap map[string]*models.Pipeline
 type mergeRequestsMap map[string]*models.MergeRequest
@@ -95,7 +105,7 @@ func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsP
 	for i := range mergeRequests {
 		mergeRequest := &mergeRequests[i]
 		prev, found := mergeRequestsMap[mergeRequest.Task]
-		if !found || mergeRequest.Status != models.MergeRequestMerged {
+		if !found || getMergeRequestState(mergeRequest) != models.MergeRequestMerged {
 			prev = mergeRequest
 		}
 		mergeRequestsMap[mergeRequest.Task] = prev
@@ -302,11 +312,12 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 
 					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasksOnReview++
+						mrStatus := getMergeRequestState(mergeRequest)
 
-						if mergeRequest.Status == models.MergeRequestOnReview {
+						if mrStatus == models.MergeRequestOnReview {
 							tasks[i].Status = TaskStatusOnReview
 							tasks[i].Score = 0
-						} else if mergeRequest.Status == models.MergeRequestPending {
+						} else if mrStatus == models.MergeRequestPending {
 							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", pipeline.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
 							tasks[i].Status = TaskStatusPending
 							tasks[i].Score = 0
