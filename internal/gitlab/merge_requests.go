@@ -151,6 +151,7 @@ func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branc
 
 	mergeRequests, err := p.getBranchMergeRequests(project, branch)
 	if err != nil {
+		p.logger.Error("Failed to ger MRs from gitlab", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 		return
 	}
 
@@ -172,7 +173,7 @@ func (p MergeRequestsUpdater) syncDbMergeRequests(project *gitlab.Project, branc
 		IID:       mr.IID,
 	})
 	if err != nil {
-		p.logger.Error("Failed to update merge request in db", zap.Error(err))
+		p.logger.Error("Failed to update merge request in db", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 		return
 	}
 }
@@ -194,9 +195,11 @@ func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*g
 
 func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, branch *gitlab.Branch) (*branchMergeRequests, error) {
 	result := branchMergeRequests{}
+	main := "main"
 
 	options := &gitlab.ListProjectMergeRequestsOptions{
 		SourceBranch: &branch.Name,
+		TargetBranch: &main,
 	}
 
 	gitlabMergeRequests, _, err := p.gitlab.MergeRequests.ListProjectMergeRequests(project.ID, options)
