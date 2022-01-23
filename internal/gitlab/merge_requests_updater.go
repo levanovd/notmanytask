@@ -27,7 +27,7 @@ type branchMergeRequests struct {
 func NewMergeRequestsUpdater(client *Client, db *database.DataBase) (*MergeRequestsUpdater, error) {
 	return &MergeRequestsUpdater{
 		Client: client,
-		logger: client.logger.Named("merge_requests"),
+		logger: client.logger.Named("merge_requests_updater"),
 		db:     db,
 	}, nil
 }
@@ -122,7 +122,7 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 				options := &gitlab.AcceptMergeRequestOptions{
 					MergeCommitMessage: &mergeCommitMessage,
 				}
-				_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project, mergeRequests.Open.IID, options)
+				_, _, err = p.gitlab.MergeRequests.AcceptMergeRequest(project.ID, mergeRequests.Open.IID, options)
 				if err != nil {
 					p.logger.Error("Failed to accept merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 					return
