@@ -190,7 +190,9 @@ func (db *DataBase) ListAllPipelines() (pipelines []models.Pipeline, err error) 
 
 func (db *DataBase) FindLatestPipeline(project string, task string) (*models.Pipeline, error) {
 	pipelines := make([]models.Pipeline, 0)
-	err := db.Find(&pipelines, "project = ? AND task = ?", project, task).Order("started_at desc").Error
+	err := db.Order(
+		clause.OrderByColumn{Column: clause.Column{Name: "started_at"}, Desc: true},
+	).Find(&pipelines, "project = ? AND task = ?", project, task).Error
 	if err != nil {
 		pipelines = nil
 	}
