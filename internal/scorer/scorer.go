@@ -418,6 +418,6 @@ func exponentialScore(task *deadlines.Task, group *deadlines.TaskGroup, pipeline
 }
 
 func (s Scorer) scorePipeline(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *models.Pipeline) int {
-	return s.linearScore(task, group, pipeline)
+	return linearScore(task, group, pipeline)
 	// return exponentialScore(task, group, pipeline)
 }
