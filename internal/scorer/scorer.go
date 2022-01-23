@@ -394,10 +394,10 @@ func linearScore(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *mod
 
 	weekAfter := group.Deadline.Time.Add(week)
 	if pipeline.StartedAt.After(weekAfter) {
-		return task.Score / 2
+		return 0
 	}
 
-	mult := 1.0 - 0.5*pipeline.StartedAt.Sub(deadline).Seconds()/(weekAfter.Sub(deadline)).Seconds()
+	mult := 1.0 - pipeline.StartedAt.Sub(deadline).Seconds()/(weekAfter.Sub(deadline)).Seconds()
 
 	return int(float64(task.Score) * mult)
 }
@@ -418,6 +418,6 @@ func exponentialScore(task *deadlines.Task, group *deadlines.TaskGroup, pipeline
 }
 
 func (s Scorer) scorePipeline(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *models.Pipeline) int {
-	// return s.linearScore(task, group, pipeline)
-	return exponentialScore(task, group, pipeline)
+	return s.linearScore(task, group, pipeline)
+	// return exponentialScore(task, group, pipeline)
 }
