@@ -59,9 +59,10 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 			}
 
 			for _, mr := range gitlabMergeRequests {
-				if !IsSubmitBranch(mr.TargetBranch) {
+				if !IsSubmitBranch(mr.SourceBranch) {
 					continue
 				}
+				p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 
 				err = p.db.AddMergeRequest(&models.MergeRequest{
 					ID:             mr.ID,
@@ -78,6 +79,7 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 					p.logger.Error("Failed to add MR to DB", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 					return err
 				}
+				p.logger.Info("Added MR to DB", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 			}
 
 			if response.CurrentPage >= response.TotalPages {
