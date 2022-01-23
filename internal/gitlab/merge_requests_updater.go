@@ -151,7 +151,7 @@ func (p MergeRequestsUpdater) createMergeRequest(project int, branch string) (*g
 }
 
 func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, branch *gitlab.Branch) (*branchMergeRequests, error) {
-	result := branchMergeRequests{}
+	result := &branchMergeRequests{}
 
 	mergeRequests, err := p.db.ListProjectBranchMergeRequests(project.Name, ParseTaskFromBranch(branch.Name))
 	if err != nil {
@@ -162,14 +162,14 @@ func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, br
 	for _, mr := range mergeRequests {
 		if mr.State == "opened" {
 			if result.Open == nil || result.Open.StartedAt.Before(mr.StartedAt) {
-				result.Open = &mr
+				result.Open = mr
 			}
 		} else if mr.State == "merged" {
 			if result.Merged == nil || result.Merged.StartedAt.Before(mr.StartedAt) {
-				result.Merged = &mr
+				result.Merged = mr
 			}
 		}
 	}
 
-	return &result, nil
+	return result, nil
 }

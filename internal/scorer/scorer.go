@@ -38,6 +38,7 @@ const (
 	mergeRequestStatusClosed = iota
 	mergeRequestStatusPending
 	mergeRequestStatusOnReview
+	mergeRequestStatusCantBeMerged
 	mergeRequestStatusMerged
 )
 
@@ -48,6 +49,8 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		return mergeRequestStatusClosed
 	} else if mergeRequest.State == "merged" {
 		return mergeRequestStatusMerged
+	} else if mergeRequest.MergeStatus == "cannot_be_merged" {
+		return mergeRequestStatusCantBeMerged
 	} else if mergeRequest.UserNotesCount > 0 {
 		return mergeRequestStatusOnReview
 	} else {
@@ -310,6 +313,9 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 							tasks[i].Score = 0
 						} else if mrStatus == mergeRequestStatusClosed {
 							tasks[i].Status = TaskStatusPending
+							tasks[i].Score = 0
+						} else if mrStatus == mergeRequestStatusCantBeMerged {
+							tasks[i].Status = TaskStatusFailed
 							tasks[i].Score = 0
 						}
 					}

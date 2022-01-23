@@ -286,12 +286,12 @@ func (db *DataBase) ListSubmittedFlags() (flags []models.Flag, err error) {
 func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"state", "started_at", "i_id", "user_notes_count", "merge_status"}),
+		DoUpdates: clause.AssignmentColumns([]string{"state", "user_notes_count", "merge_status"}),
 	}).Create(mergeRequest).Error
 }
 
-func (db *DataBase) ListProjectBranchMergeRequests(project string, task string) (mergeRequests []models.MergeRequest, err error) {
-	mergeRequests = make([]models.MergeRequest, 0)
+func (db *DataBase) ListProjectBranchMergeRequests(project string, task string) (mergeRequests []*models.MergeRequest, err error) {
+	mergeRequests = make([]*models.MergeRequest, 0)
 	err = db.DB.Find(&mergeRequests, "project = ? AND task = ?", project, task).Error
 	if err != nil {
 		mergeRequests = nil

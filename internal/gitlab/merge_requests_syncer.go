@@ -46,11 +46,14 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 	err := p.ForEachProject(func(project *gitlab.Project) error {
 		p.logger.Info("Found project", lf.ProjectName(project.Name))
 		main := "main"
+		withMergeStatusRecheck := true
+
+		options := &gitlab.ListProjectMergeRequestsOptions{
+			TargetBranch:           &main,
+			WithMergeStatusRecheck: &withMergeStatusRecheck,
+		}
 
 		for {
-			options := &gitlab.ListProjectMergeRequestsOptions{
-				TargetBranch: &main,
-			}
 
 			gitlabMergeRequests, response, err := p.gitlab.MergeRequests.ListProjectMergeRequests(project.ID, options)
 			if err != nil {
