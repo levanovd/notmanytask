@@ -39,6 +39,7 @@ type ScoredTask struct {
 	Score          int
 	MaxScore       int
 	TimeUntilMerge string
+	HasReview      bool
 
 	TaskUrl     string
 	PipelineUrl string

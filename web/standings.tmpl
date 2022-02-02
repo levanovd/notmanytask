@@ -148,6 +148,9 @@
                                             <a href="{{ .PipelineUrl }}" class="text-decoration-none text-dark">
                                         {{ end }}
                                         {{ .Score }}
+                                        {{ if .HasReview }}
+                                            👁
+                                        {{ end }}
                                         {{ if .TimeUntilMerge }}
                                             <span class="text-secondary">{{ .TimeUntilMerge }}</span>
                                         {{ end }}
