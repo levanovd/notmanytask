@@ -68,7 +68,7 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 				p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 
 				mergeUserLogin := ""
-				if mr.MergedBy == nil {
+				if mr.MergedBy != nil {
 					mergeUserLogin = mr.MergedBy.Username
 				}
 
