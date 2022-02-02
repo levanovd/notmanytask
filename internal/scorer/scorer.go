@@ -300,6 +300,8 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				if mergeRequestFound {
 					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
 
+					tasks[i].HasReview = mergeRequest.UserNotesCount > 0
+
 					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasksOnReview++
 						mrStatus := getMergeRequestStatus(mergeRequest)
