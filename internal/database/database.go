@@ -286,7 +286,7 @@ func (db *DataBase) ListSubmittedFlags() (flags []models.Flag, err error) {
 func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"state", "user_notes_count", "merge_status"}),
+		DoUpdates: clause.AssignmentColumns([]string{"state", "user_notes_count", "merge_status", "merge_user_login"}),
 	}).Create(mergeRequest).Error
 }
 
