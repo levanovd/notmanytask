@@ -24,14 +24,15 @@ type ProjectNameFactory interface {
 }
 
 type Scorer struct {
-	deadlines *deadlines.Fetcher
-	db        *database.DataBase
-	projects  ProjectNameFactory
-	reviewTtl time.Duration
+	deadlines  *deadlines.Fetcher
+	db         *database.DataBase
+	projects   ProjectNameFactory
+	reviewTtl  time.Duration
+	robotLogin string
 }
 
-func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory, reviewTtl time.Duration) *Scorer {
-	return &Scorer{deadlines, db, projects, reviewTtl}
+func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory, reviewTtl time.Duration, robotLogin string) *Scorer {
+	return &Scorer{deadlines, db, projects, reviewTtl, robotLogin}
 }
 
 const (
@@ -298,13 +299,14 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 
 				mergeRequest, mergeRequestFound := mergeRequestsMap[task.Task]
 				if mergeRequestFound {
-					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
+					mrStatus := getMergeRequestStatus(mergeRequest)
 
-					tasks[i].HasReview = mergeRequest.UserNotesCount > 0
+					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
+					tasks[i].HasReview = mergeRequest.UserNotesCount > 0 ||
+						mrStatus == mergeRequestStatusMerged && mergeRequest.MergeUserLogin != s.robotLogin
 
 					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasksOnReview++
-						mrStatus := getMergeRequestStatus(mergeRequest)
 
 						if mrStatus == mergeRequestStatusOnReview {
 							tasks[i].Status = TaskStatusOnReview
