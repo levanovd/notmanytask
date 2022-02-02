@@ -67,6 +67,11 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 				}
 				p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 
+				mergeUserLogin := ""
+				if mr.MergedBy != nil {
+					mergeUserLogin = mr.MergedBy.Username
+				}
+
 				err = p.db.AddMergeRequest(&models.MergeRequest{
 					ID:             mr.ID,
 					Task:           ParseTaskFromBranch(mr.SourceBranch),
@@ -76,6 +81,7 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 					StartedAt:      *mr.CreatedAt,
 					IID:            mr.IID,
 					MergeStatus:    mr.MergeStatus,
+					MergeUserLogin: mergeUserLogin,
 				})
 
 				if err != nil {

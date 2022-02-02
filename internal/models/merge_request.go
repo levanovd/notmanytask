@@ -14,4 +14,5 @@ type MergeRequest struct {
 	StartedAt      time.Time
 	MergeStatus    string
 	IID            int
+	MergeUserLogin string
 }
