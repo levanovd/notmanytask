@@ -89,18 +89,37 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 	}
 }
 
-func (p MergeRequestsSyncer) hasUnresolvedNotes(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (bool, error) {
-	options := &gitlab.ListMergeRequestNotesOptions{}
+type notesInfo struct {
+	HasUnresolvedNotes bool
+	LastNoteCreatedAt  time.Time
+}
+
+func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (notesInfo, error) {
+	createdAt := "created_at"
+	desc := "desc"
+	options := &gitlab.ListMergeRequestNotesOptions{
+		OrderBy: &createdAt,
+		Sort:    &desc,
+	}
+
+	result := notesInfo{}
+
 	for {
 		notes, response, err := p.gitlab.Notes.ListMergeRequestNotes(project.ID, mergeRequest.IID, options)
 
 		if err != nil {
-			return false, err
+			return result, err
 		}
 
 		for _, note := range notes {
-			if note.Resolvable && !note.Resolved {
-				return true, nil
+			if note.Resolvable {
+				if time.Time.IsZero(result.LastNoteCreatedAt) {
+					result.LastNoteCreatedAt = *note.CreatedAt
+				}
+				if !note.Resolved {
+					result.HasUnresolvedNotes = true
+					return result, nil
+				}
 			}
 		}
 
@@ -110,7 +129,7 @@ func (p MergeRequestsSyncer) hasUnresolvedNotes(project *gitlab.Project, mergeRe
 		options.Page = response.NextPage
 	}
 
-	return false, nil
+	return result, nil
 }
 
 func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab.MergeRequest, mergedTasks database.MergedTasks) error {
@@ -128,7 +147,7 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		mergeUserLogin = mr.MergedBy.Username
 	}
 
-	hasUnresolvedNotes, err := p.hasUnresolvedNotes(project, mr)
+	notesInfo, err := p.getNotesInfo(project, mr)
 	if err != nil {
 		p.logger.Error("Failed to list notes for MR", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 		return err
@@ -144,7 +163,8 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		IID:                mr.IID,
 		MergeStatus:        mr.MergeStatus,
 		MergeUserLogin:     mergeUserLogin,
-		HasUnresolvedNotes: hasUnresolvedNotes,
+		HasUnresolvedNotes: notesInfo.HasUnresolvedNotes,
+		LastNoteCreatedAt:  notesInfo.LastNoteCreatedAt,
 	})
 
 	if err != nil {
