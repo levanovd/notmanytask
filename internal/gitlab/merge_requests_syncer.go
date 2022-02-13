@@ -62,40 +62,10 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 			}
 
 			for _, mr := range gitlabMergeRequests {
-				if !IsSubmitBranch(mr.SourceBranch) {
-					continue
-				}
-				p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
-
-				mergeUserLogin := ""
-				if mr.MergedBy != nil {
-					mergeUserLogin = mr.MergedBy.Username
-				}
-
-				hasUnresolvedNotes, err := p.hasUnresolvedNotes(project, mr)
+				err = p.addMergeRequest(project, mr)
 				if err != nil {
-					p.logger.Error("Failed to list notes for MR", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 					return err
 				}
-
-				err = p.db.AddMergeRequest(&models.MergeRequest{
-					ID:                 mr.ID,
-					Task:               ParseTaskFromBranch(mr.SourceBranch),
-					Project:            project.Name,
-					State:              mr.State,
-					UserNotesCount:     mr.UserNotesCount,
-					StartedAt:          *mr.CreatedAt,
-					IID:                mr.IID,
-					MergeStatus:        mr.MergeStatus,
-					MergeUserLogin:     mergeUserLogin,
-					HasUnresolvedNotes: hasUnresolvedNotes,
-				})
-
-				if err != nil {
-					p.logger.Error("Failed to add MR to DB", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
-					return err
-				}
-				p.logger.Info("Added MR to DB", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 			}
 
 			if response.CurrentPage >= response.TotalPages {
@@ -135,4 +105,42 @@ func (p MergeRequestsSyncer) hasUnresolvedNotes(project *gitlab.Project, mergeRe
 	}
 
 	return false, nil
+}
+
+func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab.MergeRequest) error {
+	if !IsSubmitBranch(mr.SourceBranch) {
+		return nil
+	}
+	p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
+
+	mergeUserLogin := ""
+	if mr.MergedBy != nil {
+		mergeUserLogin = mr.MergedBy.Username
+	}
+
+	hasUnresolvedNotes, err := p.hasUnresolvedNotes(project, mr)
+	if err != nil {
+		p.logger.Error("Failed to list notes for MR", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
+		return err
+	}
+
+	err = p.db.AddMergeRequest(&models.MergeRequest{
+		ID:                 mr.ID,
+		Task:               ParseTaskFromBranch(mr.SourceBranch),
+		Project:            project.Name,
+		State:              mr.State,
+		UserNotesCount:     mr.UserNotesCount,
+		StartedAt:          *mr.CreatedAt,
+		IID:                mr.IID,
+		MergeStatus:        mr.MergeStatus,
+		MergeUserLogin:     mergeUserLogin,
+		HasUnresolvedNotes: hasUnresolvedNotes,
+	})
+
+	if err != nil {
+		p.logger.Error("Failed to add MR to DB", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
+		return err
+	}
+	p.logger.Info("Added MR to DB", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
+	return nil
 }
