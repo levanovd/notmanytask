@@ -9,10 +9,11 @@ type MergeRequest struct {
 	Project string `gorm:"index"`
 	Task    string `gorm:"index"`
 
-	State          string
-	UserNotesCount int
-	StartedAt      time.Time
-	MergeStatus    string
-	IID            int
-	MergeUserLogin string
+	State              string
+	UserNotesCount     int
+	StartedAt          time.Time
+	MergeStatus        string
+	IID                int
+	MergeUserLogin     string
+	HasUnresolvedNotes bool
 }
