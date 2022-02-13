@@ -72,16 +72,23 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 					mergeUserLogin = mr.MergedBy.Username
 				}
 
+				hasUnresolvedNotes, err := p.hasUnresolvedNotes(project, mr)
+				if err != nil {
+					p.logger.Error("Failed to list notes for MR", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
+					return err
+				}
+
 				err = p.db.AddMergeRequest(&models.MergeRequest{
-					ID:             mr.ID,
-					Task:           ParseTaskFromBranch(mr.SourceBranch),
-					Project:        project.Name,
-					State:          mr.State,
-					UserNotesCount: mr.UserNotesCount,
-					StartedAt:      *mr.CreatedAt,
-					IID:            mr.IID,
-					MergeStatus:    mr.MergeStatus,
-					MergeUserLogin: mergeUserLogin,
+					ID:                 mr.ID,
+					Task:               ParseTaskFromBranch(mr.SourceBranch),
+					Project:            project.Name,
+					State:              mr.State,
+					UserNotesCount:     mr.UserNotesCount,
+					StartedAt:          *mr.CreatedAt,
+					IID:                mr.IID,
+					MergeStatus:        mr.MergeStatus,
+					MergeUserLogin:     mergeUserLogin,
+					HasUnresolvedNotes: hasUnresolvedNotes,
 				})
 
 				if err != nil {
@@ -104,4 +111,28 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 	} else {
 		p.logger.Error("Failed to sync merge requests", zap.Error(err))
 	}
+}
+
+func (p MergeRequestsSyncer) hasUnresolvedNotes(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (bool, error) {
+	options := &gitlab.ListMergeRequestNotesOptions{}
+	for {
+		notes, response, err := p.gitlab.Notes.ListMergeRequestNotes(project.ID, mergeRequest.IID, options)
+
+		if err != nil {
+			return false, err
+		}
+
+		for _, note := range notes {
+			if note.Resolvable && !note.Resolved {
+				return true, nil
+			}
+		}
+
+		if response.CurrentPage >= response.TotalPages {
+			break
+		}
+		options.Page = response.NextPage
+	}
+
+	return false, nil
 }
