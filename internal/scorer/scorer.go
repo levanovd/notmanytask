@@ -44,7 +44,7 @@ const (
 	mergeRequestStatusClosed = iota
 	mergeRequestStatusPending
 	mergeRequestStatusOnReview
-	mergeRequestStatusReviewFixed
+	mergeRequestStatusReviewResolved
 	mergeRequestStatusCantBeMerged
 	mergeRequestStatusMerged
 )
@@ -62,7 +62,7 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		if mergeRequest.HasUnresolvedNotes {
 			return mergeRequestStatusOnReview
 		} else {
-			return mergeRequestStatusReviewFixed
+			return mergeRequestStatusReviewResolved
 		}
 	} else {
 		return mergeRequestStatusPending
@@ -337,8 +337,8 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 						case mergeRequestStatusCantBeMerged:
 							tasks[i].Status = TaskStatusFailed
 							tasks[i].Score = 0
-						case mergeRequestStatusReviewFixed:
-							tasks[i].Status = TaskStatusReviewFixed
+						case mergeRequestStatusReviewResolved:
+							tasks[i].Status = TaskStatusReviewResolved
 							tasks[i].Score = 0
 						}
 					}
