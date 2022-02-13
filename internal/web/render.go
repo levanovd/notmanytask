@@ -68,13 +68,6 @@ func (s *server) handleChuckNorris(c *gin.Context) {
 	return
 }
 
-func reverseScores(scores *scorer.UserScores) {
-	groups := scores.Groups
-	for i, j := 0, len(groups)-1; i < j; i, j = i+1, j-1 {
-		groups[i], groups[j] = groups[j], groups[i]
-	}
-}
-
 type Links struct {
 	Deadlines       string
 	Standings       string
@@ -122,7 +115,6 @@ func (s *server) makeGroupLink(g string) string {
 func (s *server) RenderHomePage(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	scores, err := s.scorer.CalcUserScores(user)
-	reverseScores(scores)
 
 	c.HTML(http.StatusOK, "/home.tmpl", gin.H{
 		// FIXME(BigRedEye): Do not hardcode title
@@ -141,7 +133,6 @@ func (s *server) RenderCheaterPage(c *gin.Context) {
 	if err == nil {
 		scores, err = s.scorer.CalcUserScores(user)
 	}
-	reverseScores(scores)
 
 	c.HTML(http.StatusOK, "/home.tmpl", gin.H{
 		"CourseName": "HSE Basic C++",
