@@ -115,7 +115,7 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 			}
 			p.logger.Info("Found latest pipeline", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 
-			if mergeRequests.Open.MergeStatus != "cannot_be_merged" &&
+			if mergeRequests.Open.MergeStatus != models.MergeRequestStatusCannotBeMerged &&
 				!mergeRequests.HasUserNotes &&
 				pipeline.StartedAt.Before(reviewDeadline) &&
 				pipeline.Status == models.PipelineStatusSuccess {
@@ -165,7 +165,7 @@ func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, br
 			if result.Open == nil || result.Open.StartedAt.Before(mr.StartedAt) {
 				result.Open = mr
 			}
-		} else if mr.State == "merged" {
+		} else if mr.State == models.MergeRequestStateMerged {
 			if result.Merged == nil || result.Merged.StartedAt.Before(mr.StartedAt) {
 				result.Merged = mr
 			}

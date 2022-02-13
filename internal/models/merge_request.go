@@ -4,6 +4,13 @@ import (
 	"time"
 )
 
+const (
+	MergeRequestStateMerged = "merged"
+	MergeRequestStateClosed = "closed"
+
+	MergeRequestStatusCannotBeMerged = "cannot_be_merged"
+)
+
 type MergeRequest struct {
 	ID      int    `gorm:"primaryKey"`
 	Project string `gorm:"index"`

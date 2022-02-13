@@ -52,11 +52,11 @@ const (
 type mergeRequestStatus = int
 
 func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus {
-	if mergeRequest.State == "closed" {
+	if mergeRequest.State == models.MergeRequestStateClosed {
 		return mergeRequestStatusClosed
-	} else if mergeRequest.State == "merged" {
+	} else if mergeRequest.State == models.MergeRequestStateMerged {
 		return mergeRequestStatusMerged
-	} else if mergeRequest.MergeStatus == "cannot_be_merged" {
+	} else if mergeRequest.MergeStatus == models.MergeRequestStatusCannotBeMerged {
 		return mergeRequestStatusCantBeMerged
 	} else if mergeRequest.UserNotesCount > 0 {
 		if mergeRequest.HasUnresolvedNotes {
