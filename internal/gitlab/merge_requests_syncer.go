@@ -53,6 +53,12 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 			WithMergeStatusRecheck: &withMergeStatusRecheck,
 		}
 
+		mergedTasks, err := p.db.GetTasksWithMergedRequests(project.Name)
+		if err != nil {
+			p.logger.Error("Failed to list merged tasks", zap.Error(err), lf.ProjectName(project.Name))
+			return err
+		}
+
 		for {
 
 			gitlabMergeRequests, response, err := p.gitlab.MergeRequests.ListProjectMergeRequests(project.ID, options)
@@ -62,7 +68,7 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 			}
 
 			for _, mr := range gitlabMergeRequests {
-				err = p.addMergeRequest(project, mr)
+				err = p.addMergeRequest(project, mr, mergedTasks)
 				if err != nil {
 					return err
 				}
@@ -107,12 +113,12 @@ func (p MergeRequestsSyncer) hasUnresolvedNotes(project *gitlab.Project, mergeRe
 	return false, nil
 }
 
-func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab.MergeRequest) error {
+func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab.MergeRequest, mergedTasks database.MergedTasks) error {
 	if !IsSubmitBranch(mr.SourceBranch) {
 		return nil
 	}
 	task := ParseTaskFromBranch(mr.SourceBranch)
-	if p.db.HasMergedRequests(project.Name, task) {
+	if mergedTasks[task] {
 		return nil
 	}
 	p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))

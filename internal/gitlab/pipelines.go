@@ -82,6 +82,12 @@ func (p PipelinesFetcher) fetchAllPipelines() {
 	err := p.ForEachProject(func(project *gitlab.Project) error {
 		p.logger.Info("Found project", lf.ProjectName(project.Name))
 		options := &gitlab.ListProjectPipelinesOptions{}
+		mergedTasks, err := p.db.GetTasksWithMergedRequests(project.Name)
+		if err != nil {
+			p.logger.Error("Failed to list merged tasks", zap.Error(err), lf.ProjectName(project.Name))
+			return err
+		}
+
 		for {
 			pipelines, resp, err := p.gitlab.Pipelines.ListProjectPipelines(project.ID, options)
 			if err != nil {
@@ -90,6 +96,9 @@ func (p PipelinesFetcher) fetchAllPipelines() {
 			}
 
 			for _, pipeline := range pipelines {
+				if mergedTasks[ParseTaskFromBranch(pipeline.Ref)] {
+					continue
+				}
 				p.logger.Info("Found pipeline", lf.ProjectName(project.Name), lf.PipelineID(pipeline.ID), lf.PipelineStatus(pipeline.Status))
 				if err = p.addPipeline(project.Name, pipeline); err != nil {
 					p.logger.Error("Failed to add pipeline", zap.Error(err), lf.ProjectName(project.Name), lf.PipelineID(pipeline.ID))

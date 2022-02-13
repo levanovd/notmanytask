@@ -317,8 +317,18 @@ func (db *DataBase) ListAllMergeRequests() (mergeRequests []models.MergeRequest,
 	return
 }
 
-func (db *DataBase) HasMergedRequests(project string, task string) bool {
-	var hasMergedRequests int64
-	db.Where("project = ? AND task = ? AND merge_status = ?", project, task, "merged").Count(&hasMergedRequests)
-	return hasMergedRequests > 0
+type MergedTasks map[string]bool
+
+func (db *DataBase) GetTasksWithMergedRequests(project string) (tasks MergedTasks, err error) {
+	mergeRequests := make([]models.MergeRequest, 0)
+	err = db.Find(&mergeRequests, "project = ? AND merge_status = ?", project, "merged").Error
+	if err != nil {
+		return
+	}
+
+	tasks = make(map[string]bool)
+	for _, mr := range mergeRequests {
+		tasks[mr.Task] = true
+	}
+	return
 }
