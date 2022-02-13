@@ -101,7 +101,7 @@ func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsP
 	for i := range mergeRequests {
 		mergeRequest := &mergeRequests[i]
 		prev, found := mergeRequestsMap[mergeRequest.Task]
-		if !found || getMergeRequestStatus(mergeRequest) > getMergeRequestStatus(prev) {
+		if !found || getMergeRequestStatus(mergeRequest) > getMergeRequestStatus(prev.MergeRequest) {
 			prev = &MergeRequestsInfo{
 				MergeRequest: mergeRequest,
 			}
