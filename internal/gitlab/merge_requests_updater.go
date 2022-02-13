@@ -20,8 +20,9 @@ type MergeRequestsUpdater struct {
 }
 
 type branchMergeRequests struct {
-	Open   *models.MergeRequest
-	Merged *models.MergeRequest
+	Open         *models.MergeRequest
+	Merged       *models.MergeRequest
+	HasUserNotes bool
 }
 
 func NewMergeRequestsUpdater(client *Client, db *database.DataBase) (*MergeRequestsUpdater, error) {
@@ -115,7 +116,7 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 			p.logger.Info("Found latest pipeline", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 
 			if mergeRequests.Open.MergeStatus != "cannot_be_merged" &&
-				mergeRequests.Open.UserNotesCount == 0 &&
+				!mergeRequests.HasUserNotes &&
 				pipeline.StartedAt.Before(reviewDeadline) &&
 				pipeline.Status == models.PipelineStatusSuccess {
 				mergeCommitMessage := "Automatic merge"
@@ -168,6 +169,9 @@ func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, br
 			if result.Merged == nil || result.Merged.StartedAt.Before(mr.StartedAt) {
 				result.Merged = mr
 			}
+		}
+		if mr.UserNotesCount > 0 {
+			result.HasUserNotes = true
 		}
 	}
 
