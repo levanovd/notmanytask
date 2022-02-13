@@ -316,3 +316,9 @@ func (db *DataBase) ListAllMergeRequests() (mergeRequests []models.MergeRequest,
 	}
 	return
 }
+
+func (db *DataBase) HasMergedRequests(project string, task string) bool {
+	var hasMergedRequests int64
+	db.Where("project = ? AND task = ? AND merge_status = ?", project, task, "merged").Count(&hasMergedRequests)
+	return hasMergedRequests > 0
+}

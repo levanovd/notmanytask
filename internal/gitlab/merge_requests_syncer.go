@@ -111,6 +111,10 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 	if !IsSubmitBranch(mr.SourceBranch) {
 		return nil
 	}
+	task := ParseTaskFromBranch(mr.SourceBranch)
+	if p.db.HasMergedRequests(project.Name, task) {
+		return nil
+	}
 	p.logger.Info("Found MR from branch", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 
 	mergeUserLogin := ""
@@ -126,7 +130,7 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 
 	err = p.db.AddMergeRequest(&models.MergeRequest{
 		ID:                 mr.ID,
-		Task:               ParseTaskFromBranch(mr.SourceBranch),
+		Task:               task,
 		Project:            project.Name,
 		State:              mr.State,
 		UserNotesCount:     mr.UserNotesCount,
