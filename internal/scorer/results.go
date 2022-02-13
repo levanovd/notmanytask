@@ -6,12 +6,13 @@ import (
 )
 
 const (
-	TaskStatusAssigned = "assigned"
-	TaskStatusFailed   = "failed"
-	TaskStatusChecking = "checking"
-	TaskStatusSuccess  = "success"
-	TaskStatusOnReview = "on_review"
-	TaskStatusPending  = "pending"
+	TaskStatusAssigned    = "assigned"
+	TaskStatusFailed      = "failed"
+	TaskStatusChecking    = "checking"
+	TaskStatusSuccess     = "success"
+	TaskStatusOnReview    = "on_review"
+	TaskStatusPending     = "pending"
+	TaskStatusReviewFixed = "review_fixed"
 )
 
 type TaskStatus = string

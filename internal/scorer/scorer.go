@@ -44,6 +44,7 @@ const (
 	mergeRequestStatusClosed = iota
 	mergeRequestStatusPending
 	mergeRequestStatusOnReview
+	mergeRequestStatusReviewFixed
 	mergeRequestStatusCantBeMerged
 	mergeRequestStatusMerged
 )
@@ -58,7 +59,11 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 	} else if mergeRequest.MergeStatus == "cannot_be_merged" {
 		return mergeRequestStatusCantBeMerged
 	} else if mergeRequest.UserNotesCount > 0 {
-		return mergeRequestStatusOnReview
+		if mergeRequest.HasUnresolvedNotes {
+			return mergeRequestStatusOnReview
+		} else {
+			return mergeRequestStatusReviewFixed
+		}
 	} else {
 		return mergeRequestStatusPending
 	}
@@ -318,18 +323,22 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasksOnReview++
 
-						if mrStatus == mergeRequestStatusOnReview {
+						switch mrStatus {
+						case mergeRequestStatusOnReview:
 							tasks[i].Status = TaskStatusOnReview
 							tasks[i].Score = 0
-						} else if mrStatus == mergeRequestStatusPending {
+						case mergeRequestStatusPending:
 							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", pipeline.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
 							tasks[i].Status = TaskStatusPending
 							tasks[i].Score = 0
-						} else if mrStatus == mergeRequestStatusClosed {
+						case mergeRequestStatusClosed:
 							tasks[i].Status = TaskStatusPending
 							tasks[i].Score = 0
-						} else if mrStatus == mergeRequestStatusCantBeMerged {
+						case mergeRequestStatusCantBeMerged:
 							tasks[i].Status = TaskStatusFailed
+							tasks[i].Score = 0
+						case mergeRequestStatusReviewFixed:
+							tasks[i].Status = TaskStatusReviewFixed
 							tasks[i].Score = 0
 						}
 					}
