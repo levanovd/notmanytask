@@ -31,6 +31,11 @@ type Scorer struct {
 	robotLogin string
 }
 
+type MergeRequestsInfo struct {
+	MergeRequest *models.MergeRequest
+	HasUserNotes bool
+}
+
 func NewScorer(db *database.DataBase, deadlines *deadlines.Fetcher, projects ProjectNameFactory, reviewTtl time.Duration, robotLogin string) *Scorer {
 	return &Scorer{deadlines, db, projects, reviewTtl, robotLogin}
 }
@@ -61,7 +66,7 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 
 // TODO(BigRedEye): Unify submits?
 type pipelinesMap map[string]*models.Pipeline
-type mergeRequestsMap map[string]*models.MergeRequest
+type mergeRequestsMap map[string]*MergeRequestsInfo
 type flagsMap map[string]*models.Flag
 
 type pipelinesProvider = func(project string) (pipelines []models.Pipeline, err error)
@@ -97,7 +102,12 @@ func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsP
 		mergeRequest := &mergeRequests[i]
 		prev, found := mergeRequestsMap[mergeRequest.Task]
 		if !found || getMergeRequestStatus(mergeRequest) > getMergeRequestStatus(prev) {
-			prev = mergeRequest
+			prev = &MergeRequestsInfo{
+				MergeRequest: mergeRequest,
+			}
+		}
+		if mergeRequest.UserNotesCount > 0 {
+			prev.HasUserNotes = true
 		}
 		mergeRequestsMap[mergeRequest.Task] = prev
 	}
@@ -297,13 +307,13 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				tasks[i].Score = s.scorePipeline(&task, &group, pipeline)
 				tasks[i].PipelineUrl = s.projects.MakePipelineUrl(user, pipeline)
 
-				mergeRequest, mergeRequestFound := mergeRequestsMap[task.Task]
+				mergeRequestsInfo, mergeRequestFound := mergeRequestsMap[task.Task]
 				if mergeRequestFound {
-					mrStatus := getMergeRequestStatus(mergeRequest)
+					mrStatus := getMergeRequestStatus(mergeRequestsInfo.MergeRequest)
 
-					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequest)
-					tasks[i].HasReview = mergeRequest.UserNotesCount > 0 ||
-						mrStatus == mergeRequestStatusMerged && mergeRequest.MergeUserLogin != s.robotLogin
+					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequestsInfo.MergeRequest)
+					tasks[i].HasReview = mergeRequestsInfo.HasUserNotes ||
+						mrStatus == mergeRequestStatusMerged && mergeRequestsInfo.MergeRequest.MergeUserLogin != s.robotLogin
 
 					if tasks[i].Status == models.PipelineStatusSuccess {
 						tasksOnReview++
