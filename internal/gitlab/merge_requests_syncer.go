@@ -96,28 +96,32 @@ type notesInfo struct {
 }
 
 func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (notesInfo, error) {
-	options := &gitlab.ListMergeRequestDiscussionsOptions{}
+	createdAt := "created_at"
+	desc := "desc"
+	options := &gitlab.ListMergeRequestNotesOptions{
+		OrderBy: &createdAt,
+		Sort:    &desc,
+	}
 
 	result := notesInfo{}
 
 	for {
-		discussions, response, err := p.gitlab.Discussions.ListMergeRequestDiscussions(project.ID, mergeRequest.IID, options)
+		notes, response, err := p.gitlab.Notes.ListMergeRequestNotes(project.ID, mergeRequest.IID, options)
 
 		if err != nil {
 			return result, err
 		}
 
-		for _, discussion := range discussions {
-			for _, note := range discussion.Notes {
-				if note.Resolvable {
-					if note.CreatedAt.After(result.LastNoteCreatedAt) {
-						result.LastNoteCreatedAt = *note.CreatedAt
-					}
-					if !note.Resolved {
-						result.HasUnresolvedNotes = true
-					} else if note.ResolvedAt.After(result.LastNoteResolvedAt) {
-						result.LastNoteResolvedAt = *note.ResolvedAt
-					}
+		for _, note := range notes {
+			if note.Resolvable {
+				if time.Time.IsZero(result.LastNoteCreatedAt) {
+					result.LastNoteCreatedAt = *note.CreatedAt
+				}
+				if !note.Resolved {
+					result.HasUnresolvedNotes = true
+					return result, nil
+				} else if note.ResolvedAt.After(result.LastNoteResolvedAt) {
+					result.LastNoteResolvedAt = *note.ResolvedAt
 				}
 			}
 		}
