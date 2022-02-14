@@ -92,6 +92,7 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 type notesInfo struct {
 	HasUnresolvedNotes bool
 	LastNoteCreatedAt  time.Time
+	LastNoteResolvedAt time.Time
 }
 
 func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (notesInfo, error) {
@@ -119,6 +120,8 @@ func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest 
 				if !note.Resolved {
 					result.HasUnresolvedNotes = true
 					return result, nil
+				} else if note.ResolvedAt.After(result.LastNoteResolvedAt) {
+					result.LastNoteResolvedAt = *note.ResolvedAt
 				}
 			}
 		}
@@ -165,6 +168,7 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		MergeUserLogin:     mergeUserLogin,
 		HasUnresolvedNotes: notesInfo.HasUnresolvedNotes,
 		LastNoteCreatedAt:  notesInfo.LastNoteCreatedAt,
+		LastNoteResolvedAt: notesInfo.LastNoteResolvedAt,
 	})
 
 	if err != nil {
