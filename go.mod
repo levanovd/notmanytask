@@ -15,7 +15,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/rakyll/statik v0.1.7
 	github.com/spf13/viper v1.8.1
-	github.com/xanzy/go-gitlab v0.50.3
+	github.com/xanzy/go-gitlab v0.55.2-0.20220214083811-41c6472d936a
 	go.uber.org/zap v1.19.0
 	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

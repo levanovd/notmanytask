@@ -92,33 +92,32 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 type notesInfo struct {
 	HasUnresolvedNotes bool
 	LastNoteCreatedAt  time.Time
+	LastNoteResolvedAt time.Time
 }
 
 func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (notesInfo, error) {
-	createdAt := "created_at"
-	desc := "desc"
-	options := &gitlab.ListMergeRequestNotesOptions{
-		OrderBy: &createdAt,
-		Sort:    &desc,
-	}
+	options := &gitlab.ListMergeRequestDiscussionsOptions{}
 
 	result := notesInfo{}
 
 	for {
-		notes, response, err := p.gitlab.Notes.ListMergeRequestNotes(project.ID, mergeRequest.IID, options)
+		discussions, response, err := p.gitlab.Discussions.ListMergeRequestDiscussions(project.ID, mergeRequest.IID, options)
 
 		if err != nil {
 			return result, err
 		}
 
-		for _, note := range notes {
-			if note.Resolvable {
-				if time.Time.IsZero(result.LastNoteCreatedAt) {
-					result.LastNoteCreatedAt = *note.CreatedAt
-				}
-				if !note.Resolved {
-					result.HasUnresolvedNotes = true
-					return result, nil
+		for _, discussion := range discussions {
+			for _, note := range discussion.Notes {
+				if note.Resolvable {
+					if note.CreatedAt.After(result.LastNoteCreatedAt) {
+						result.LastNoteCreatedAt = *note.CreatedAt
+					}
+					if !note.Resolved {
+						result.HasUnresolvedNotes = true
+					} else if note.ResolvedAt.After(result.LastNoteResolvedAt) {
+						result.LastNoteResolvedAt = *note.ResolvedAt
+					}
 				}
 			}
 		}
@@ -165,6 +164,7 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		MergeUserLogin:     mergeUserLogin,
 		HasUnresolvedNotes: notesInfo.HasUnresolvedNotes,
 		LastNoteCreatedAt:  notesInfo.LastNoteCreatedAt,
+		LastNoteResolvedAt: notesInfo.LastNoteResolvedAt,
 	})
 
 	if err != nil {
