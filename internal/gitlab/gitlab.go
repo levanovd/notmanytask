@@ -2,12 +2,11 @@ package gitlab
 
 import (
 	"fmt"
-	"net/http"
-	"strings"
-
 	"github.com/pkg/errors"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
+	"net/http"
+	"strings"
 
 	"github.com/bigredeye/notmanytask/internal/config"
 	lf "github.com/bigredeye/notmanytask/internal/logfield"
@@ -173,8 +172,17 @@ func (c Client) ForEachProject(callback func(project *gitlab.Project) error) err
 			return err
 		}
 
+		errChannel := make(chan error, len(projects))
+
 		for _, project := range projects {
-			if err = callback(project); err != nil {
+			capturedProject := project
+			go func() {
+				errChannel <- callback(capturedProject)
+			}()
+		}
+
+		for errorsLeft := len(projects); errorsLeft > 0; errorsLeft-- {
+			if err = <-errChannel; err != nil {
 				c.logger.Error("Project callback failed", zap.Error(err))
 				return err
 			}
