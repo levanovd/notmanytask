@@ -16,14 +16,17 @@ type MergeRequest struct {
 	Project string `gorm:"index"`
 	Task    string `gorm:"index"`
 
-	State              string
-	UserNotesCount     int
-	StartedAt          time.Time
-	MergeStatus        string
-	IID                int
-	MergeUserLogin     string
-	HasUnresolvedNotes bool
-	LastNoteCreatedAt  time.Time
-	LastNoteResolvedAt time.Time
-	ExtraChanges       bool
+	State                 string
+	UserNotesCount        int
+	StartedAt             time.Time
+	MergeStatus           string
+	IID                   int
+	MergeUserLogin        string
+	HasUnresolvedNotes    bool
+	LastNoteCreatedAt     time.Time
+	LastNoteResolvedAt    time.Time
+	LastPipelineStatus    string
+	LastPipelineCreatedAt time.Time
+  ExtraChanges          bool
+
 }

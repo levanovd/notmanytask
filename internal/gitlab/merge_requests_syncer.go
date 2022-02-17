@@ -160,20 +160,24 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 
 	extraChanges, err := p.checkForExtraChanges(project, mr, task)
 
+	pipeline, err := p.getLatestPipeline(project, mr)
+
 	err = p.db.AddMergeRequest(&models.MergeRequest{
-		ID:                 mr.ID,
-		Task:               task,
-		Project:            project.Name,
-		State:              mr.State,
-		UserNotesCount:     mr.UserNotesCount,
-		StartedAt:          *mr.CreatedAt,
-		IID:                mr.IID,
-		MergeStatus:        mr.MergeStatus,
-		MergeUserLogin:     mergeUserLogin,
-		HasUnresolvedNotes: notesInfo.HasUnresolvedNotes,
-		LastNoteCreatedAt:  notesInfo.LastNoteCreatedAt,
-		LastNoteResolvedAt: notesInfo.LastNoteResolvedAt,
-		ExtraChanges:       extraChanges,
+		ID:                    mr.ID,
+		Task:                  task,
+		Project:               project.Name,
+		State:                 mr.State,
+		UserNotesCount:        mr.UserNotesCount,
+		StartedAt:             *mr.CreatedAt,
+		IID:                   mr.IID,
+		MergeStatus:           mr.MergeStatus,
+		MergeUserLogin:        mergeUserLogin,
+		HasUnresolvedNotes:    notesInfo.HasUnresolvedNotes,
+		LastNoteCreatedAt:     notesInfo.LastNoteCreatedAt,
+		LastNoteResolvedAt:    notesInfo.LastNoteResolvedAt,
+		LastPipelineStatus:    pipeline.LastPipelineStatus,
+		LastPipelineCreatedAt: pipeline.LastPipelineCreatedAt,
+		ExtraChanges:          extraChanges,
 	})
 
 	if err != nil {
@@ -202,4 +206,29 @@ func (p MergeRequestsSyncer) checkForExtraChanges(project *gitlab.Project, merge
 	}
 
 	return false, nil
+}
+
+type pipelineInfo struct {
+	LastPipelineStatus    string
+	LastPipelineCreatedAt time.Time
+}
+
+func (p MergeRequestsSyncer) getLatestPipeline(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (result pipelineInfo, err error) {
+	pipelines, _, err := p.gitlab.MergeRequests.ListMergeRequestPipelines(project.ID, mergeRequest.IID)
+
+	if err != nil {
+		return
+	}
+
+	for _, pipeline := range pipelines {
+		if pipeline.CreatedAt != nil {
+			result = pipelineInfo{
+				LastPipelineCreatedAt: *pipeline.CreatedAt,
+				LastPipelineStatus:    pipeline.Status,
+			}
+		}
+		return
+	}
+
+	return
 }
