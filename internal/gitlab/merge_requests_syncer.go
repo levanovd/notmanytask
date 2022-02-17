@@ -2,11 +2,13 @@ package gitlab
 
 import (
 	"context"
+	"fmt"
 	"github.com/bigredeye/notmanytask/internal/database"
 	lf "github.com/bigredeye/notmanytask/internal/logfield"
 	"github.com/bigredeye/notmanytask/internal/models"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
+	"strings"
 	"time"
 )
 
@@ -156,6 +158,8 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		return err
 	}
 
+	extraChanges, err := p.checkForExtraChanges(project, mr, task)
+
 	err = p.db.AddMergeRequest(&models.MergeRequest{
 		ID:                 mr.ID,
 		Task:               task,
@@ -169,6 +173,7 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		HasUnresolvedNotes: notesInfo.HasUnresolvedNotes,
 		LastNoteCreatedAt:  notesInfo.LastNoteCreatedAt,
 		LastNoteResolvedAt: notesInfo.LastNoteResolvedAt,
+		ExtraChanges:       extraChanges,
 	})
 
 	if err != nil {
@@ -177,4 +182,24 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 	}
 	p.logger.Info("Added MR to DB", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 	return nil
+}
+
+func (p MergeRequestsSyncer) checkForExtraChanges(project *gitlab.Project, mergeRequest *gitlab.MergeRequest, task string) (bool, error) {
+	options := &gitlab.GetMergeRequestChangesOptions{}
+
+	allowedPrefix := fmt.Sprintf("tasks/%s/", task)
+
+	mr, _, err := p.gitlab.MergeRequests.GetMergeRequestChanges(project.ID, mergeRequest.IID, options)
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, change := range mr.Changes {
+		if !strings.HasPrefix(change.NewPath, allowedPrefix) || !strings.HasPrefix(change.OldPath, allowedPrefix) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

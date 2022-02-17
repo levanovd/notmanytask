@@ -25,4 +25,5 @@ type MergeRequest struct {
 	HasUnresolvedNotes bool
 	LastNoteCreatedAt  time.Time
 	LastNoteResolvedAt time.Time
+	ExtraChanges       bool
 }
