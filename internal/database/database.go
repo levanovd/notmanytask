@@ -294,8 +294,8 @@ func (db *DataBase) AddMergeRequest(mergeRequest *models.MergeRequest) error {
 			"has_unresolved_notes",
 			"last_note_created_at",
 			"last_pipeline_created_at",
-			"extra_changes",
 			"last_pipeline_status",
+			"extra_changes",
 		}),
 	}).Create(mergeRequest).Error
 }
