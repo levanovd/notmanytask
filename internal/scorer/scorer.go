@@ -48,6 +48,7 @@ const (
 	mergeRequestStatusCantBeMerged
 	mergeRequestStatusMerged
 	mergeRequestStatusHasExtraChanges
+	mergeRequestStatusPipelineFailed
 )
 
 type mergeRequestStatus = int
@@ -57,6 +58,8 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		return mergeRequestStatusClosed
 	} else if mergeRequest.State == models.MergeRequestStateMerged {
 		return mergeRequestStatusMerged
+	} else if mergeRequest.LastPipelineStatus == models.PipelineStatusFailed {
+		return mergeRequestStatusPipelineFailed
 	} else if mergeRequest.ExtraChanges {
 		return mergeRequestStatusHasExtraChanges
 	} else if mergeRequest.MergeStatus == models.MergeRequestStatusCannotBeMerged {
@@ -210,43 +213,38 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 			mergeRequestsInfo, mergeRequestFound := mergeRequestsMap[task.Task]
 			if mergeRequestFound {
 				mrStatus := getMergeRequestStatus(mergeRequestsInfo.MergeRequest)
-				tasks[i].Status = ClassifyPipelineStatus(mergeRequestsInfo.MergeRequest.LastPipelineStatus)
-				tasks[i].Score = s.scorePipeline(&task, &group, mergeRequestsInfo.MergeRequest)
 
 				tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequestsInfo.MergeRequest)
 				tasks[i].HasReview = mergeRequestsInfo.HasUserNotes ||
 					mrStatus == mergeRequestStatusMerged && mergeRequestsInfo.MergeRequest.MergeUserLogin != s.robotLogin
 
-				if tasks[i].Status == models.PipelineStatusSuccess {
-					tasksOnReview++
-
-					switch mrStatus {
-					case mergeRequestStatusOnReview:
-						tasks[i].Status = TaskStatusOnReview
-						tasks[i].Score = 0
-					case mergeRequestStatusPending:
-						tasks[i].Message = fmt.Sprintf("%s", mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
-						tasks[i].Status = TaskStatusPending
-						tasks[i].Score = 0
-					case mergeRequestStatusClosed:
-						tasks[i].Status = TaskStatusPending
-						tasks[i].Score = 0
-					case mergeRequestStatusCantBeMerged:
-						tasks[i].Message = "merge conflict"
-						tasks[i].Status = TaskStatusFailed
-						tasks[i].Score = 0
-					case mergeRequestStatusReviewResolved:
-						tasks[i].Status = TaskStatusReviewResolved
-						tasks[i].Score = 0
-					case mergeRequestStatusHasExtraChanges:
-						tasks[i].Message = "extra changes"
-						tasks[i].Status = TaskStatusFailed
-						tasks[i].Score = 0
-					}
+				switch mrStatus {
+				case mergeRequestStatusOnReview:
+					tasks[i].Status = TaskStatusOnReview
+				case mergeRequestStatusPending:
+					tasks[i].Message = fmt.Sprintf("%s", mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+					tasks[i].Status = TaskStatusPending
+				case mergeRequestStatusClosed:
+					tasks[i].Status = TaskStatusPending
+				case mergeRequestStatusCantBeMerged:
+					tasks[i].Message = "merge conflict"
+					tasks[i].Status = TaskStatusFailed
+				case mergeRequestStatusReviewResolved:
+					tasks[i].Status = TaskStatusReviewResolved
+				case mergeRequestStatusHasExtraChanges:
+					tasks[i].Message = "extra changes"
+					tasks[i].Status = TaskStatusFailed
+				case mergeRequestStatusPipelineFailed:
+					tasks[i].Message = "pipeline failed"
+					tasks[i].Status = TaskStatusFailed
+				case mergeRequestStatusMerged:
+					tasks[i].Score = s.scorePipeline(&task, &group, mergeRequestsInfo.MergeRequest)
+					tasks[i].Status = TaskStatusSuccess
 				}
-			} else {
-				tasks[i].Status = TaskStatusChecking
-				tasks[i].Score = 0
+
+				if tasks[i].Status != TaskStatusFailed {
+					tasksOnReview++
+				}
 			}
 
 			totalScore += tasks[i].Score
