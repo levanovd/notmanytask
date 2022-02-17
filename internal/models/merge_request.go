@@ -27,6 +27,5 @@ type MergeRequest struct {
 	LastNoteResolvedAt    time.Time
 	LastPipelineStatus    string
 	LastPipelineCreatedAt time.Time
-  ExtraChanges          bool
-
+	ExtraChanges          bool
 }
