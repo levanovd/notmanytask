@@ -321,7 +321,7 @@ type MergedTasks map[string]bool
 
 func (db *DataBase) GetTasksWithMergedRequests(project string) (tasks MergedTasks, err error) {
 	mergeRequests := make([]models.MergeRequest, 0)
-	err = db.Find(&mergeRequests, "project = ? AND state = ?", project, models.MergeRequestStateMerged).Error
+	err = db.Find(&mergeRequests, "project = ? AND state = ? AND last_pipeline_status = ?", project, models.MergeRequestStateMerged, models.PipelineStatusSuccess).Error
 	if err != nil {
 		return
 	}
