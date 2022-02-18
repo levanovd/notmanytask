@@ -20,9 +20,10 @@ type MergeRequestsUpdater struct {
 }
 
 type branchMergeRequests struct {
-	Open         *models.MergeRequest
-	Merged       *models.MergeRequest
-	HasUserNotes bool
+	Open               *models.MergeRequest
+	Merged             *models.MergeRequest
+	HasUnresolvedNotes bool
+	LastNoteCreatedAt  time.Time
 }
 
 func NewMergeRequestsUpdater(client *Client, db *database.DataBase) (*MergeRequestsUpdater, error) {
@@ -109,7 +110,8 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 			p.logger.Info("Got an open merge request from gitlab", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 
 			if mergeRequests.Open.MergeStatus != models.MergeRequestStatusCannotBeMerged &&
-				!mergeRequests.HasUserNotes &&
+				!mergeRequests.HasUnresolvedNotes &&
+				mergeRequests.LastNoteCreatedAt.Before(reviewDeadline) &&
 				!mergeRequests.Open.ExtraChanges &&
 				mergeRequests.Open.LastPipelineCreatedAt.Before(reviewDeadline) &&
 				mergeRequests.Open.LastPipelineStatus == models.PipelineStatusSuccess {
@@ -164,8 +166,11 @@ func (p MergeRequestsUpdater) getBranchMergeRequests(project *gitlab.Project, br
 				result.Merged = mr
 			}
 		}
-		if mr.UserNotesCount > 0 {
-			result.HasUserNotes = true
+		if mr.HasUnresolvedNotes {
+			result.HasUnresolvedNotes = true
+		}
+		if mr.LastNoteCreatedAt.After(result.LastNoteCreatedAt) {
+			result.LastNoteCreatedAt = mr.LastNoteCreatedAt
 		}
 	}
 
