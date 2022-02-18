@@ -111,7 +111,6 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 
 			if mergeRequests.Open.MergeStatus != models.MergeRequestStatusCannotBeMerged &&
 				!mergeRequests.HasUnresolvedNotes &&
-				pipeline.StartedAt.Before(reviewDeadline) &&
 				mergeRequests.LastNoteCreatedAt.Before(reviewDeadline) &&
 				!mergeRequests.Open.ExtraChanges &&
 				mergeRequests.Open.LastPipelineCreatedAt.Before(reviewDeadline) &&
