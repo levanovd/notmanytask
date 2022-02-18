@@ -218,11 +218,13 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				tasks[i].HasReview = mergeRequestsInfo.HasUserNotes ||
 					mrStatus == mergeRequestStatusMerged && mergeRequestsInfo.MergeRequest.MergeUserLogin != s.robotLogin
 
+				timeToMerge := fmt.Sprintf("%s", mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+
 				switch mrStatus {
 				case mergeRequestStatusOnReview:
 					tasks[i].Status = TaskStatusOnReview
 				case mergeRequestStatusPending:
-					tasks[i].Message = fmt.Sprintf("%s", mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+					tasks[i].Message = timeToMerge
 					tasks[i].Status = TaskStatusPending
 				case mergeRequestStatusClosed:
 					tasks[i].Status = TaskStatusPending
@@ -230,6 +232,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 					tasks[i].Message = "merge conflict"
 					tasks[i].Status = TaskStatusFailed
 				case mergeRequestStatusReviewResolved:
+					tasks[i].Message = timeToMerge
 					tasks[i].Status = TaskStatusReviewResolved
 				case mergeRequestStatusHasExtraChanges:
 					tasks[i].Message = "extra changes"
