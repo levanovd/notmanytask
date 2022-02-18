@@ -60,8 +60,8 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		return mergeRequestStatusMerged
 	} else if mergeRequest.LastPipelineStatus == models.PipelineStatusFailed {
 		return mergeRequestStatusPipelineFailed
-	} else if mergeRequest.ExtraChanges {
-		return mergeRequestStatusHasExtraChanges
+		//} else if mergeRequest.ExtraChanges {
+		//	return mergeRequestStatusHasExtraChanges
 	} else if mergeRequest.MergeStatus == models.MergeRequestStatusCannotBeMerged {
 		return mergeRequestStatusCantBeMerged
 	} else if mergeRequest.UserNotesCount > 0 {
