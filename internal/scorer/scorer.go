@@ -60,8 +60,6 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		return mergeRequestStatusMerged
 	} else if mergeRequest.LastPipelineStatus == models.PipelineStatusFailed {
 		return mergeRequestStatusPipelineFailed
-	} else if mergeRequest.ExtraChanges {
-		return mergeRequestStatusHasExtraChanges
 	} else if mergeRequest.MergeStatus == models.MergeRequestStatusCannotBeMerged {
 		return mergeRequestStatusCantBeMerged
 	} else if mergeRequest.UserNotesCount > 0 {
@@ -70,6 +68,8 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		} else {
 			return mergeRequestStatusReviewResolved
 		}
+	} else if mergeRequest.ExtraChanges {
+		return mergeRequestStatusHasExtraChanges
 	} else {
 		return mergeRequestStatusPending
 	}
@@ -233,7 +233,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 					tasks[i].Status = TaskStatusReviewResolved
 				case mergeRequestStatusHasExtraChanges:
 					tasks[i].Message = "extra changes"
-					tasks[i].Status = TaskStatusFailed
+					tasks[i].Status = TaskStatusPending
 				case mergeRequestStatusPipelineFailed:
 					tasks[i].Message = "pipeline failed"
 					tasks[i].Status = TaskStatusFailed
