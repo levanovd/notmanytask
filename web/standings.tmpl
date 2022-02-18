@@ -153,8 +153,8 @@
                                         {{ if .HasReview }}
                                             👁
                                         {{ end }}
-                                        {{ if .TimeUntilMerge }}
-                                            <span class="text-secondary">{{ .TimeUntilMerge }}</span>
+                                        {{ if .Message }}
+                                            <span class="text-secondary">{{ .Message }}</span>
                                         {{ end }}
                                         {{ if .PipelineUrl }}
                                             </a>

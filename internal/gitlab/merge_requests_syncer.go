@@ -2,11 +2,13 @@ package gitlab
 
 import (
 	"context"
+	"fmt"
 	"github.com/bigredeye/notmanytask/internal/database"
 	lf "github.com/bigredeye/notmanytask/internal/logfield"
 	"github.com/bigredeye/notmanytask/internal/models"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
+	"strings"
 	"time"
 )
 
@@ -92,6 +94,7 @@ func (p MergeRequestsSyncer) syncDbMergeRequests() {
 type notesInfo struct {
 	HasUnresolvedNotes bool
 	LastNoteCreatedAt  time.Time
+	LastNoteResolvedAt time.Time
 }
 
 func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (notesInfo, error) {
@@ -119,6 +122,8 @@ func (p MergeRequestsSyncer) getNotesInfo(project *gitlab.Project, mergeRequest 
 				if !note.Resolved {
 					result.HasUnresolvedNotes = true
 					return result, nil
+				} else if note.ResolvedAt.After(result.LastNoteResolvedAt) {
+					result.LastNoteResolvedAt = *note.ResolvedAt
 				}
 			}
 		}
@@ -153,18 +158,26 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 		return err
 	}
 
+	extraChanges, err := p.checkForExtraChanges(project, mr, task)
+
+	pipeline, err := p.getLatestPipeline(project, mr)
+
 	err = p.db.AddMergeRequest(&models.MergeRequest{
-		ID:                 mr.ID,
-		Task:               task,
-		Project:            project.Name,
-		State:              mr.State,
-		UserNotesCount:     mr.UserNotesCount,
-		StartedAt:          *mr.CreatedAt,
-		IID:                mr.IID,
-		MergeStatus:        mr.MergeStatus,
-		MergeUserLogin:     mergeUserLogin,
-		HasUnresolvedNotes: notesInfo.HasUnresolvedNotes,
-		LastNoteCreatedAt:  notesInfo.LastNoteCreatedAt,
+		ID:                    mr.ID,
+		Task:                  task,
+		Project:               project.Name,
+		State:                 mr.State,
+		UserNotesCount:        mr.UserNotesCount,
+		StartedAt:             *mr.CreatedAt,
+		IID:                   mr.IID,
+		MergeStatus:           mr.MergeStatus,
+		MergeUserLogin:        mergeUserLogin,
+		HasUnresolvedNotes:    notesInfo.HasUnresolvedNotes,
+		LastNoteCreatedAt:     notesInfo.LastNoteCreatedAt,
+		LastNoteResolvedAt:    notesInfo.LastNoteResolvedAt,
+		LastPipelineStatus:    pipeline.LastPipelineStatus,
+		LastPipelineCreatedAt: pipeline.LastPipelineCreatedAt,
+		ExtraChanges:          extraChanges,
 	})
 
 	if err != nil {
@@ -173,4 +186,49 @@ func (p MergeRequestsSyncer) addMergeRequest(project *gitlab.Project, mr *gitlab
 	}
 	p.logger.Info("Added MR to DB", lf.ProjectName(project.Name), lf.BranchName(mr.SourceBranch))
 	return nil
+}
+
+func (p MergeRequestsSyncer) checkForExtraChanges(project *gitlab.Project, mergeRequest *gitlab.MergeRequest, task string) (bool, error) {
+	options := &gitlab.GetMergeRequestChangesOptions{}
+
+	allowedPrefix := fmt.Sprintf("tasks/%s/", task)
+
+	mr, _, err := p.gitlab.MergeRequests.GetMergeRequestChanges(project.ID, mergeRequest.IID, options)
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, change := range mr.Changes {
+		if !strings.HasPrefix(change.NewPath, allowedPrefix) || !strings.HasPrefix(change.OldPath, allowedPrefix) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+type pipelineInfo struct {
+	LastPipelineStatus    string
+	LastPipelineCreatedAt time.Time
+}
+
+func (p MergeRequestsSyncer) getLatestPipeline(project *gitlab.Project, mergeRequest *gitlab.MergeRequest) (result pipelineInfo, err error) {
+	pipelines, _, err := p.gitlab.MergeRequests.ListMergeRequestPipelines(project.ID, mergeRequest.IID)
+
+	if err != nil {
+		return
+	}
+
+	for _, pipeline := range pipelines {
+		if pipeline.CreatedAt != nil {
+			result = pipelineInfo{
+				LastPipelineCreatedAt: *pipeline.CreatedAt,
+				LastPipelineStatus:    pipeline.Status,
+			}
+		}
+		return
+	}
+
+	return
 }

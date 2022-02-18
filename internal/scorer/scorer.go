@@ -47,6 +47,8 @@ const (
 	mergeRequestStatusReviewResolved
 	mergeRequestStatusCantBeMerged
 	mergeRequestStatusMerged
+	mergeRequestStatusHasExtraChanges
+	mergeRequestStatusPipelineFailed
 )
 
 type mergeRequestStatus = int
@@ -56,6 +58,8 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		return mergeRequestStatusClosed
 	} else if mergeRequest.State == models.MergeRequestStateMerged {
 		return mergeRequestStatusMerged
+	} else if mergeRequest.LastPipelineStatus == models.PipelineStatusFailed {
+		return mergeRequestStatusPipelineFailed
 	} else if mergeRequest.MergeStatus == models.MergeRequestStatusCannotBeMerged {
 		return mergeRequestStatusCantBeMerged
 	} else if mergeRequest.UserNotesCount > 0 {
@@ -64,37 +68,17 @@ func getMergeRequestStatus(mergeRequest *models.MergeRequest) mergeRequestStatus
 		} else {
 			return mergeRequestStatusReviewResolved
 		}
+	} else if mergeRequest.ExtraChanges {
+		return mergeRequestStatusHasExtraChanges
 	} else {
 		return mergeRequestStatusPending
 	}
 }
 
 // TODO(BigRedEye): Unify submits?
-type pipelinesMap map[string]*models.Pipeline
 type mergeRequestsMap map[string]*MergeRequestsInfo
-type flagsMap map[string]*models.Flag
 
-type pipelinesProvider = func(project string) (pipelines []models.Pipeline, err error)
 type mergeRequestsProvider = func(project string) (mergeRequests []models.MergeRequest, err error)
-type flagsProvider = func(gitlabLogin string) (flags []models.Flag, err error)
-
-func (s Scorer) loadUserPipelines(user *models.User, provider pipelinesProvider) (pipelinesMap, error) {
-	pipelines, err := provider(s.projects.MakeProjectName(user))
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to list user pipelines")
-	}
-
-	pipelinesMap := make(pipelinesMap)
-	for i := range pipelines {
-		pipeline := &pipelines[i]
-		prev, found := pipelinesMap[pipeline.Task]
-		if !found || pipeline.StartedAt.After(prev.StartedAt) {
-			prev = pipeline
-		}
-		pipelinesMap[pipeline.Task] = prev
-	}
-	return pipelinesMap, nil
-}
 
 func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsProvider) (mergeRequestsMap, error) {
 	mergeRequests, err := provider(s.projects.MakeProjectName(user))
@@ -119,24 +103,6 @@ func (s Scorer) loadUserMergeRequests(user *models.User, provider mergeRequestsP
 	return mergeRequestsMap, nil
 }
 
-func (s Scorer) loadUserFlags(user *models.User, provider flagsProvider) (flagsMap, error) {
-	flags, err := provider(*user.GitlabLogin)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to list user flags")
-	}
-
-	flagsMap := make(flagsMap)
-	for i := range flags {
-		flag := &flags[i]
-		prev, found := flagsMap[flag.Task]
-		if !found || flag.CreatedAt.Before(prev.CreatedAt) {
-			prev = flag
-		}
-		flagsMap[flag.Task] = prev
-	}
-	return flagsMap, nil
-}
-
 func (s Scorer) CalcScoreboard(groupName string, subgroupName string) (*Standings, error) {
 	currentDeadlines := s.deadlines.GroupDeadlines(groupName)
 	if currentDeadlines == nil {
@@ -148,24 +114,14 @@ func (s Scorer) CalcScoreboard(groupName string, subgroupName string) (*Standing
 		return nil, err
 	}
 
-	pipelines, err := s.makeCachedPipelinesProvider()
-	if err != nil {
-		return nil, err
-	}
-
 	mergeRequests, err := s.makeCachedMergeRequestsProvider()
-	if err != nil {
-		return nil, err
-	}
-
-	flags, err := s.makeCachedFlagsProvider()
 	if err != nil {
 		return nil, err
 	}
 
 	scores := make([]*UserScores, len(users))
 	for i, user := range users {
-		userScores, err := s.calcUserScoresImpl(currentDeadlines, user, pipelines, mergeRequests, flags)
+		userScores, err := s.calcUserScoresImpl(currentDeadlines, user, mergeRequests)
 		if err != nil {
 			return nil, err
 		}
@@ -184,27 +140,6 @@ func (s Scorer) CalcScoreboard(groupName string, subgroupName string) (*Standing
 	})
 
 	return &Standings{currentDeadlines, scores}, nil
-}
-
-func (s Scorer) makeCachedPipelinesProvider() (pipelinesProvider, error) {
-	pipelines, err := s.db.ListAllPipelines()
-	if err != nil {
-		return nil, err
-	}
-
-	pipelinesMap := make(map[string][]models.Pipeline)
-	for _, pipeline := range pipelines {
-		prev, found := pipelinesMap[pipeline.Project]
-		if !found {
-			prev = make([]models.Pipeline, 0, 1)
-		}
-		prev = append(prev, pipeline)
-		pipelinesMap[pipeline.Project] = prev
-	}
-
-	return func(project string) (pipelines []models.Pipeline, err error) {
-		return pipelinesMap[project], nil
-	}, nil
 }
 
 func (s Scorer) makeCachedMergeRequestsProvider() (mergeRequestsProvider, error) {
@@ -228,48 +163,17 @@ func (s Scorer) makeCachedMergeRequestsProvider() (mergeRequestsProvider, error)
 	}, nil
 }
 
-func (s Scorer) makeCachedFlagsProvider() (flagsProvider, error) {
-	flags, err := s.db.ListSubmittedFlags()
-	if err != nil {
-		return nil, err
-	}
-
-	flagsMap := make(map[string][]models.Flag)
-	for _, flag := range flags {
-		prev, found := flagsMap[*flag.GitlabLogin]
-		if !found {
-			prev = make([]models.Flag, 0, 1)
-		}
-		prev = append(prev, flag)
-		flagsMap[*flag.GitlabLogin] = prev
-	}
-
-	return func(gitlabLogin string) (flags []models.Flag, err error) {
-		return flagsMap[gitlabLogin], nil
-	}, nil
-}
-
 func (s Scorer) CalcUserScores(user *models.User) (*UserScores, error) {
 	currentDeadlines := s.deadlines.GroupDeadlines(user.GroupName)
 	if currentDeadlines == nil {
 		return nil, fmt.Errorf("No deadlines found")
 	}
 
-	return s.calcUserScoresImpl(currentDeadlines, user, s.db.ListProjectPipelines, s.db.ListProjectMergeRequests, s.db.ListUserFlags)
+	return s.calcUserScoresImpl(currentDeadlines, user, s.db.ListProjectMergeRequests)
 }
 
-func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *models.User, pipelinesP pipelinesProvider, mergeRequestsP mergeRequestsProvider, flagsP flagsProvider) (*UserScores, error) {
-	pipelinesMap, err := s.loadUserPipelines(user, pipelinesP)
-	if err != nil {
-		return nil, err
-	}
-
+func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *models.User, mergeRequestsP mergeRequestsProvider) (*UserScores, error) {
 	mergeRequestsMap, err := s.loadUserMergeRequests(user, mergeRequestsP)
-	if err != nil {
-		return nil, err
-	}
-
-	flagsMap, err := s.loadUserFlags(user, flagsP)
 	if err != nil {
 		return nil, err
 	}
@@ -296,69 +200,53 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 
 		for i, task := range group.Tasks {
 			tasks[i] = ScoredTask{
-				Task:           task.Task,
-				ShortName:      makeShortTaskName(task.Task),
-				Status:         TaskStatusAssigned,
-				Score:          0,
-				MaxScore:       task.Score,
-				TimeUntilMerge: "",
-				TaskUrl:        s.projects.MakeTaskUrl(task.Task),
+				Task:      task.Task,
+				ShortName: makeShortTaskName(task.Task),
+				Status:    TaskStatusAssigned,
+				Score:     0,
+				MaxScore:  task.Score,
+				Message:   "",
+				TaskUrl:   s.projects.MakeTaskUrl(task.Task),
 			}
 			maxTotalScore += tasks[i].MaxScore
 
-			pipeline, found := pipelinesMap[task.Task]
-			if found {
-				tasks[i].Status = ClassifyPipelineStatus(pipeline.Status)
-				tasks[i].Score = s.scorePipeline(&task, &group, pipeline)
-				tasks[i].PipelineUrl = s.projects.MakePipelineUrl(user, pipeline)
+			mergeRequestsInfo, mergeRequestFound := mergeRequestsMap[task.Task]
+			if mergeRequestFound {
+				mrStatus := getMergeRequestStatus(mergeRequestsInfo.MergeRequest)
 
-				mergeRequestsInfo, mergeRequestFound := mergeRequestsMap[task.Task]
-				if mergeRequestFound {
-					mrStatus := getMergeRequestStatus(mergeRequestsInfo.MergeRequest)
+				tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequestsInfo.MergeRequest)
+				tasks[i].HasReview = mergeRequestsInfo.HasUserNotes ||
+					mrStatus == mergeRequestStatusMerged && mergeRequestsInfo.MergeRequest.MergeUserLogin != s.robotLogin
 
-					tasks[i].PipelineUrl = s.projects.MakeMergeRequestUrl(user, mergeRequestsInfo.MergeRequest)
-					tasks[i].HasReview = mergeRequestsInfo.HasUserNotes ||
-						mrStatus == mergeRequestStatusMerged && mergeRequestsInfo.MergeRequest.MergeUserLogin != s.robotLogin
-
-					if tasks[i].Status == models.PipelineStatusSuccess {
-						tasksOnReview++
-
-						switch mrStatus {
-						case mergeRequestStatusOnReview:
-							tasks[i].Status = TaskStatusOnReview
-							tasks[i].Score = 0
-						case mergeRequestStatusPending:
-							tasks[i].TimeUntilMerge = fmt.Sprintf("%s", pipeline.StartedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
-							tasks[i].Status = TaskStatusPending
-							tasks[i].Score = 0
-						case mergeRequestStatusClosed:
-							tasks[i].Status = TaskStatusPending
-							tasks[i].Score = 0
-						case mergeRequestStatusCantBeMerged:
-							tasks[i].Status = TaskStatusFailed
-							tasks[i].Score = 0
-						case mergeRequestStatusReviewResolved:
-							tasks[i].Status = TaskStatusReviewResolved
-							tasks[i].Score = 0
-						}
-					}
-				} else {
-					tasks[i].Status = TaskStatusChecking
-					tasks[i].Score = 0
-				}
-			} else {
-				flag, found := flagsMap[task.Task]
-				if found {
+				switch mrStatus {
+				case mergeRequestStatusOnReview:
+					tasks[i].Status = TaskStatusOnReview
+				case mergeRequestStatusPending:
+					tasks[i].Message = fmt.Sprintf("%s", mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+					tasks[i].Status = TaskStatusPending
+				case mergeRequestStatusClosed:
+					tasks[i].Status = TaskStatusPending
+				case mergeRequestStatusCantBeMerged:
+					tasks[i].Message = "merge conflict"
+					tasks[i].Status = TaskStatusFailed
+				case mergeRequestStatusReviewResolved:
+					tasks[i].Status = TaskStatusReviewResolved
+				case mergeRequestStatusHasExtraChanges:
+					tasks[i].Message = "extra changes"
+					tasks[i].Status = TaskStatusPending
+				case mergeRequestStatusPipelineFailed:
+					tasks[i].Message = "pipeline failed"
+					tasks[i].Status = TaskStatusFailed
+				case mergeRequestStatusMerged:
+					tasks[i].Score = s.scorePipeline(&task, &group, mergeRequestsInfo.MergeRequest)
 					tasks[i].Status = TaskStatusSuccess
+				}
 
-					// FIXME(BigRedEye): I just want to sleep
-					// Do not try to mimic pipelines
-					tasks[i].Score = s.scorePipeline(&task, &group, &models.Pipeline{
-						StartedAt: flag.CreatedAt,
-						Status:    models.PipelineStatusSuccess,
-					})
+				if tasks[i].Status != TaskStatusFailed {
+					tasksOnReview++
 				}
 			}
+
 			totalScore += tasks[i].Score
 		}
 
@@ -404,43 +292,43 @@ const (
 // Maybe read scoring model from deadlines?
 type scoringFunc = func(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *models.Pipeline) int
 
-func linearScore(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *models.Pipeline) int {
-	if pipeline.Status != models.PipelineStatusSuccess {
+func linearScore(task *deadlines.Task, group *deadlines.TaskGroup, mergeRequest *models.MergeRequest) int {
+	if mergeRequest.LastPipelineStatus != models.PipelineStatusSuccess {
 		return 0
 	}
 
 	deadline := group.Deadline.Time
 
-	if pipeline.StartedAt.Before(deadline) {
+	if mergeRequest.LastPipelineCreatedAt.Before(deadline) {
 		return task.Score
 	}
 
 	weekAfter := group.Deadline.Time.Add(week)
-	if pipeline.StartedAt.After(weekAfter) {
+	if mergeRequest.LastPipelineCreatedAt.After(weekAfter) {
 		return 0
 	}
 
-	mult := 1.0 - pipeline.StartedAt.Sub(deadline).Seconds()/(weekAfter.Sub(deadline)).Seconds()
+	mult := 1.0 - mergeRequest.LastPipelineCreatedAt.Sub(deadline).Seconds()/(weekAfter.Sub(deadline)).Seconds()
 
 	return int(float64(task.Score) * mult)
 }
 
-func exponentialScore(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *models.Pipeline) int {
-	if pipeline.Status != models.PipelineStatusSuccess {
+func exponentialScore(task *deadlines.Task, group *deadlines.TaskGroup, mergeRequest *models.MergeRequest) int {
+	if mergeRequest.LastPipelineStatus != models.PipelineStatusSuccess {
 		return 0
 	}
 
 	deadline := group.Deadline.Time
-	if pipeline.StartedAt.Before(deadline) {
+	if mergeRequest.LastPipelineCreatedAt.Before(deadline) {
 		return task.Score
 	}
 
-	deltaDays := pipeline.StartedAt.Sub(deadline).Hours() / 24.0
+	deltaDays := mergeRequest.LastPipelineCreatedAt.Sub(deadline).Hours() / 24.0
 
 	return int(math.Max(0.3, 1.0/math.Exp(deltaDays/5.0)) * float64(task.Score))
 }
 
-func (s Scorer) scorePipeline(task *deadlines.Task, group *deadlines.TaskGroup, pipeline *models.Pipeline) int {
-	return linearScore(task, group, pipeline)
+func (s Scorer) scorePipeline(task *deadlines.Task, group *deadlines.TaskGroup, mergeRequest *models.MergeRequest) int {
+	return linearScore(task, group, mergeRequest)
 	// return exponentialScore(task, group, pipeline)
 }
