@@ -108,17 +108,11 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 		} else {
 			p.logger.Info("Got an open merge request from gitlab", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 
-			pipeline, err := p.db.FindLatestPipeline(project.Name, task)
-			if err != nil {
-				p.logger.Error("Failed to find latest pipeline for merge request", zap.Error(err), lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-				return
-			}
-			p.logger.Info("Found latest pipeline", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
-
 			if mergeRequests.Open.MergeStatus != models.MergeRequestStatusCannotBeMerged &&
 				!mergeRequests.HasUserNotes &&
-				pipeline.StartedAt.Before(reviewDeadline) &&
-				pipeline.Status == models.PipelineStatusSuccess {
+				!mergeRequests.Open.ExtraChanges &&
+				mergeRequests.Open.LastPipelineCreatedAt.Before(reviewDeadline) &&
+				mergeRequests.Open.LastPipelineStatus == models.PipelineStatusSuccess {
 				mergeCommitMessage := "Automatic merge"
 				options := &gitlab.AcceptMergeRequestOptions{
 					MergeCommitMessage: &mergeCommitMessage,
