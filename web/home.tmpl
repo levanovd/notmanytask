@@ -119,6 +119,9 @@
                                             {{ if .PipelineUrl }}
                                                 </a>
                                             {{ end }}
+                                            {{ if .Message }}
+                                                <span class="text-secondary">{{ .Message }}</span>
+                                            {{ end }}
                                         </div>
                                     </div>
                                 </a>
