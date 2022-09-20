@@ -172,6 +172,13 @@ func (s Scorer) CalcUserScores(user *models.User) (*UserScores, error) {
 	return s.calcUserScoresImpl(currentDeadlines, user, s.db.ListProjectMergeRequests)
 }
 
+func MaxTime(x, y time.Time) time.Time {
+	if x.Unix() < y.Unix() {
+		return y
+	}
+	return x
+}
+
 func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *models.User, mergeRequestsP mergeRequestsProvider) (*UserScores, error) {
 	mergeRequestsMap, err := s.loadUserMergeRequests(user, mergeRequestsP)
 	if err != nil {
@@ -218,7 +225,10 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 				tasks[i].HasReview = mergeRequestsInfo.HasUserNotes ||
 					mrStatus == mergeRequestStatusMerged && mergeRequestsInfo.MergeRequest.MergeUserLogin != s.robotLogin
 
-				timeToMerge := fmt.Sprintf("%s", mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt.Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
+				timeToMerge := fmt.Sprintf("%s", MaxTime(
+					mergeRequestsInfo.MergeRequest.LastPipelineCreatedAt,
+					mergeRequestsInfo.MergeRequest.LastNoteCreatedAt,
+				).Add(s.reviewTtl).Sub(time.Now()).Round(time.Minute))
 
 				switch mrStatus {
 				case mergeRequestStatusOnReview:
