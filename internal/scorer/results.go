@@ -66,7 +66,7 @@ type User struct {
 }
 
 func (u User) FullName() string {
-	return u.FirstName + " " + u.LastName
+	return u.LastName + " " + u.FirstName
 }
 
 type UserScores struct {

@@ -246,7 +246,7 @@ func (s Scorer) calcUserScoresImpl(currentDeadlines *deadlines.Deadlines, user *
 					tasks[i].Status = TaskStatusReviewResolved
 				case mergeRequestStatusHasExtraChanges:
 					tasks[i].Message = "extra changes"
-					tasks[i].Status = TaskStatusPending
+					tasks[i].Status = TaskStatusFailed
 				case mergeRequestStatusPipelineFailed:
 					tasks[i].Message = "pipeline failed"
 					tasks[i].Status = TaskStatusFailed
