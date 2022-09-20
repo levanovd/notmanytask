@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/gitlab"
 
 	"github.com/bigredeye/notmanytask/internal/config"
 )
@@ -21,7 +20,10 @@ func NewAuthClient(config *config.Config) *AuthClient {
 			ClientID:     config.GitLab.Application.ClientID,
 			ClientSecret: config.GitLab.Application.Secret,
 			Scopes:       []string{"read_user"},
-			Endpoint:     gitlab.Endpoint,
+			Endpoint:     oauth2.Endpoint{
+								AuthURL:  config.GitLab.BaseURL + "/oauth/authorize",
+								TokenURL: config.GitLab.BaseURL + "/oauth/token",
+						  },
 			RedirectURL:  config.Endpoints.HostName + config.Endpoints.OauthCallback,
 		},
 	}
