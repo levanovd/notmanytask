@@ -24,8 +24,10 @@ type GitLabConfig struct {
 	Api struct {
 		Token string
 	}
-	ReviewTtl  time.Duration
-	RobotLogin string
+	ReviewTtl   time.Duration
+	RobotLogin  string
+	ImportPath  string
+	ShouldMerge bool
 }
 
 type EndpointsConfig struct {
