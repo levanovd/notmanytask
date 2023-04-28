@@ -12,8 +12,8 @@ type User struct {
 	Login string
 }
 
-func GetOAuthGitLabUser(token string) (*User, error) {
-	client, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL("https://gitlab.cpp-hse.ru")) // TODO: get URL from config
+func GetOAuthGitLabUser(token string, url string) (*User, error) {
+	client, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(url))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create gitlab client")
 	}

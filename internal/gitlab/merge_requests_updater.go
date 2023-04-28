@@ -109,7 +109,8 @@ func (p MergeRequestsUpdater) manageGitlabMergeRequests(project *gitlab.Project,
 		} else {
 			p.logger.Info("Got an open merge request from gitlab", lf.ProjectName(project.Name), lf.BranchName(branch.Name))
 
-			if mergeRequests.Open.MergeStatus != models.MergeRequestStatusCannotBeMerged &&
+			if p.config.GitLab.ShouldMerge &&
+				mergeRequests.Open.MergeStatus != models.MergeRequestStatusCannotBeMerged &&
 				!mergeRequests.HasUnresolvedNotes &&
 				mergeRequests.LastNoteCreatedAt.Before(reviewDeadline) &&
 				!mergeRequests.Open.ExtraChanges &&
